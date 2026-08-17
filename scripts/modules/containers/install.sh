@@ -26,6 +26,7 @@ install_docker_engine_debian() {
     sudo install -m 0644 "${key_file}" /etc/apt/keyrings/docker.asc
 
     local codename
+    # shellcheck source=/etc/os-release
     codename="$(. /etc/os-release && echo "${VERSION_CODENAME}")"
     sudo tee /etc/apt/sources.list.d/docker.sources >/dev/null <<EOF2
 Types: deb

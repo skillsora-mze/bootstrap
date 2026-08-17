@@ -18,6 +18,7 @@ run_module() {
 
     # Run in a subshell: modules inherit framework variables/functions without
     # leaking their own functions or local state back into the bootstrap engine.
+    # shellcheck disable=SC1090
     ( source "${script}" )
 
     log_success "Module '${module}' completed"
