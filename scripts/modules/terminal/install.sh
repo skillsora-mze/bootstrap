@@ -4,7 +4,7 @@ set -euo pipefail
 
 MODULE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
-# shellcheck source=../../lib/log.sh
+# shellcheck disable=SC1091
 source "${MODULE_ROOT}/lib/log.sh"
 
 
