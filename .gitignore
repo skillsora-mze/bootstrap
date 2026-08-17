@@ -1,0 +1,28 @@
+# Logs
+logs/
+
+# OS files
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
+
+# Temporary files
+*.tmp
+*.swp
+*.bak
+
+# Secrets
+.env
+*.secret
+*.token
+*.pem
+*.key
+
+# Generated files
+*.log
+
+# macOS archive metadata
+__MACOSX/
+._*

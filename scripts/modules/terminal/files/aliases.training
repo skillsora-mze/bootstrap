@@ -1,0 +1,131 @@
+# ==========================================
+# Workstation Bootstrap Training Aliases
+# AWS / Azure / Kubernetes / DevOps
+# ==========================================
+
+
+# ==========================================
+# Navigation & Files
+# ==========================================
+
+alias ..='cd ..'
+alias ...='cd ../..'
+
+alias la='ls -lah'
+alias ll='ls -lh'
+
+alias mkdir='mkdir -pv'
+alias cp='cp -i'
+alias mv='mv -i'
+alias rm='rm -i'
+
+
+# ==========================================
+# Git
+# ==========================================
+
+alias gs='git status'
+alias ga='git add'
+alias gc='git commit'
+alias gcm='git commit -m'
+alias gps='git push'
+alias gpl='git pull'
+alias gl='git log --oneline --decorate --graph'
+alias gd='git diff'
+
+
+# ==========================================
+# GitHub CLI
+# ==========================================
+
+alias ghs='gh status'
+
+
+# ==========================================
+# AWS
+# ==========================================
+
+alias awsv='aws --version'
+alias awswho='aws sts get-caller-identity'
+
+
+# ==========================================
+# Azure
+# ==========================================
+
+alias azv='az version'
+alias azwho='az account show'
+alias azsub='az account list --output table'
+
+
+# ==========================================
+# Kubernetes
+# ==========================================
+
+alias k='kubectl'
+alias kgp='kubectl get pods'
+alias kgs='kubectl get svc'
+alias kgn='kubectl get nodes'
+alias kga='kubectl get all'
+alias kctx='kubectl config current-context'
+
+
+# ==========================================
+# Helm
+# ==========================================
+
+alias h='helm'
+
+
+# ==========================================
+# Terraform
+# ==========================================
+
+alias tf='terraform'
+alias tfi='terraform init'
+alias tfp='terraform plan'
+alias tfa='terraform apply'
+alias tfd='terraform destroy'
+
+
+# ==========================================
+# Docker
+# ==========================================
+
+alias d='docker'
+alias dps='docker ps'
+alias dpa='docker ps -a'
+alias dimg='docker images'
+alias dcu='docker compose up'
+alias dcd='docker compose down'
+
+
+# ==========================================
+# Vagrant
+# ==========================================
+
+alias vg='vagrant'
+alias vgup='vagrant up'
+alias vgh='vagrant halt'
+alias vgr='vagrant reload'
+alias vgss='vagrant status'
+alias vgd='vagrant destroy'
+alias vssh='vagrant ssh'
+
+
+# ==========================================
+# System / Network
+# ==========================================
+
+alias myip='curl -s https://ifconfig.me && echo'
+alias ports='lsof -i -P -n | grep LISTEN'
+alias dfh='df -h'
+alias meminfo='free -h 2>/dev/null || true'
+
+
+# ==========================================
+# Python
+# ==========================================
+
+alias py='python3'
+alias pipu='python3 -m pip install --upgrade pip'

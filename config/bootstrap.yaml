@@ -1,0 +1,24 @@
+# Workstation Bootstrap configuration
+
+bootstrap:
+  version: "1.4.0"
+
+modules:
+  system_packages: true
+  containers: true
+  aws: true
+  azure: true
+  hashicorp: true
+  kubernetes: true
+  terminal: true
+
+platform:
+  macos:
+    runtime: orbstack
+  linux:
+    distribution: debian
+    runtime: docker-engine
+  windows:
+    minimum_build: 26100
+    architecture: amd64
+    runtime: rancher-desktop-moby

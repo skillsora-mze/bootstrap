@@ -1,0 +1,45 @@
+name: CI
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  bash-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ShellCheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Run Bash tests
+        run: ./tests/run.sh
+      - name: Run ShellCheck
+        run: find . -type f -name "*.sh" -print0 | xargs -0 shellcheck
+
+  macos-static-validation:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Bash syntax
+        run: find . -type f -name "*.sh" -print0 | xargs -0 -n1 bash -n
+      - name: Validate Homebrew bundle syntax
+        run: ruby -c packages/macos/Brewfile
+
+  windows-static-validation:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PSScriptAnalyzer
+        shell: pwsh
+        run: Install-Module PSScriptAnalyzer -Scope CurrentUser -Force
+      - name: Run Windows static tests
+        shell: pwsh
+        run: ./tests/windows/test-static.ps1
+      - name: Run PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          $results = Invoke-ScriptAnalyzer -Path . -Recurse -Severity Error
+          $results | Format-Table -AutoSize
+          if ($results) { throw 'PSScriptAnalyzer reported errors.' }

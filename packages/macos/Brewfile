@@ -1,0 +1,57 @@
+# Workstation Bootstrap - macOS packages
+
+# Container runtime
+cask "orbstack"
+
+# Terminal / shell productivity
+brew "zoxide"
+brew "fzf"
+brew "ripgrep"
+brew "fd"
+brew "bat"
+brew "eza"
+brew "tree"
+brew "htop"
+brew "tmux"
+brew "starship"
+
+# Git / GitHub
+brew "git"
+brew "git-lfs"
+brew "gh"
+
+# AWS
+brew "awscli"
+brew "aws-sam-cli"
+
+# Microsoft Azure
+brew "azure-cli"
+brew "azd"
+
+# Infrastructure as Code / virtualization
+brew "terraform"
+brew "packer"
+brew "ansible"
+cask "vagrant"
+
+# Kubernetes
+brew "kubectl"
+brew "helm@3"
+brew "k9s"
+brew "kind"
+brew "kubectx"
+
+# Development languages / tools
+brew "python"
+brew "uv"
+brew "go"
+
+# JSON / YAML / API tools
+brew "jq"
+brew "yq"
+brew "wget"
+brew "httpie"
+
+# Security / cryptography
+brew "gnupg"
+brew "age"
