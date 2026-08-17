@@ -9,7 +9,7 @@ foreach ($module in $modules) {
     if (-not (Test-Path $path)) { throw "Missing Windows module: $module" }
 }
 $config = Join-Path $RootDir 'config/bootstrap.yaml'
-if ((Get-BootstrapVersion -ConfigPath $config) -ne '1.4.0') { throw 'Unexpected bootstrap version' }
+if ((Get-BootstrapVersion -ConfigPath $config) -ne '1.4.1') { throw 'Unexpected bootstrap version' }
 $enabled = @(Get-EnabledModules -ConfigPath $config)
 if (($enabled -join ',') -ne ($modules -join ',')) { throw "Unexpected module order: $($enabled -join ',')" }
 $packages = Import-PowerShellDataFile (Join-Path $RootDir 'packages/windows/packages.psd1')

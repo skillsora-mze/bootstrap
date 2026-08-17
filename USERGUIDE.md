@@ -20,7 +20,7 @@ OrbStack is installed automatically through Homebrew. Docker Desktop is not used
 
 ### Windows
 
-- Windows 11 24H2 or newer, build 26100+
+- Windows 11 23H2 or newer, build 22631+
 - x64/amd64
 - Internet access
 - WinGet available

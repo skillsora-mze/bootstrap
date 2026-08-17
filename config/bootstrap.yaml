@@ -1,7 +1,7 @@
 # Workstation Bootstrap configuration
 
 bootstrap:
-  version: "1.4.0"
+  version: "1.4.1"
 
 modules:
   system_packages: true

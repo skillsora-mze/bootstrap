@@ -8,7 +8,7 @@
 
 ## D002 - Explicit support matrix
 
-**Decision:** Support macOS 14+ Apple Silicon, Debian 12 amd64/arm64, and Windows 11 24H2+ x64.
+**Decision:** Support macOS 14+ Apple Silicon, Debian 12 amd64/arm64, and Windows 11 23H2+ x64.
 
 **Reason:** Every enabled module must have an explicit, testable platform behavior. Detection alone does not imply support.
 
@@ -52,7 +52,7 @@
 
 ## D010 - Windows x64 baseline
 
-**Decision:** v1.4.0 supports Windows 11 build 26100+ on x64 only.
+**Decision:** v1.4.1 supports Windows 11 build 22631+ on x64 only.
 
 **Reason:** Narrow support reduces package/runtime variation for training fleets. Windows ARM64 can be added only after all modules are validated there.
 

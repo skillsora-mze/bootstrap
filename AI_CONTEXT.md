@@ -37,7 +37,7 @@ Other platforms are unsupported until they have an implementation and validation
 ## Windows policy
 
 - Windows bootstrap is native PowerShell, not Git Bash and not a bootstrap executed inside WSL.
-- Windows ARM64 is out of scope for v1.4.0.
+- Windows ARM64 is out of scope for v1.4.1.
 - Ansible is not installed as a native Windows control node; use WSL2 for Ansible-specific labs.
 
 ## Change policy

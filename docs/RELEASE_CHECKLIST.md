@@ -26,7 +26,7 @@
 
 ## Windows smoke test
 
-- [ ] Test host is Windows 11 build 26100+ x64 with WSL2 available.
+- [ ] Test host is Windows 11 build 22631+ x64 with WSL2 available.
 - [ ] Full `.\\bootstrap.ps1` succeeds from native PowerShell.
 - [ ] Rancher Desktop starts with Moby and embedded Kubernetes disabled.
 - [ ] `docker info`, `docker compose version`, `kubectl version --client`, `helm version --short`, `kind version` and `k9s version` succeed.

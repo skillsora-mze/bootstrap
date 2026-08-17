@@ -8,7 +8,7 @@ Workstation Bootstrap prepares reproducible workstations for cloud, DevOps and K
 |---|---|---|---|
 | macOS 14+ | Apple Silicon (arm64) | OrbStack | `./bootstrap.sh` |
 | Debian 12 | amd64 / arm64 | Docker Engine CE | `./bootstrap.sh` |
-| Windows 11 24H2+ (build 26100+) | x64/amd64 | Rancher Desktop + Moby | `.\\bootstrap.ps1` |
+| Windows 11 23H2+ (build 22631+) | x64/amd64 | Rancher Desktop + Moby | `.\\bootstrap.ps1` |
 
 Unsupported platforms fail during preflight before package installation. Windows requires WSL2 for Rancher Desktop, but the bootstrap itself runs natively in PowerShell.
 
@@ -72,4 +72,4 @@ A release additionally requires fresh-host smoke tests and a second bootstrap ru
 
 ## Version
 
-Current release candidate: **v1.4.0**.
+Current release candidate: **v1.4.1**.

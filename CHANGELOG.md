@@ -1,11 +1,17 @@
 # Changelog
 
-## v1.4.0 - Release candidate
+## v1.4.1 - Release candidate
+
+### Fixed
+
+- Windows 11 minimum aligned to 23H2 (build 22631+) after real-host preflight validation.
+- macOS test suite made compatible with the system Bash 3.2 by removing `mapfile`.
+- Documentation and release checklist aligned with the Windows 11 23H2 baseline.
 
 ### Added
 
 - Native Windows PowerShell entry point (`bootstrap.ps1`).
-- Windows 11 24H2+ x64 support with WinGet.
+- Windows 11 23H2+ x64 support with WinGet.
 - Rancher Desktop container runtime on Windows configured with Moby and embedded Kubernetes disabled.
 - WSL2 fail-fast preflight before Windows package changes when containers are enabled.
 - Windows package manifest, module implementations, workstation verification and static tests.
@@ -20,7 +26,7 @@
 
 ### Limitations
 
-- Windows ARM64 is not supported in v1.4.0.
+- Windows ARM64 is not supported in v1.4.1.
 - Ansible is not installed as a native Windows control node; WSL2 is the supported path for Ansible labs.
 - Runtime smoke testing on real supported hosts remains a release gate.
 
