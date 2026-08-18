@@ -22,10 +22,10 @@ select_modules_interactive() {
     while true; do
         printf "\n=== Module selection ===\n" >&2
         for ((i=0; i<${#known_modules[@]}; i++)); do
-            if [[ "${selected[$i]}" == "1" ]]; then
-                printf '%d. [x] %s\n' "$((i+1))" "${known_modules[$i]}" >&2
+            if [[ "${selected[i]}" == "1" ]]; then
+                printf '%d. [x] %s\n' "$((i+1))" "${known_modules[i]}" >&2
             else
-                printf '%d. [ ] %s\n' "$((i+1))" "${known_modules[$i]}" >&2
+                printf '%d. [ ] %s\n' "$((i+1))" "${known_modules[i]}" >&2
             fi
         done
         printf '\nToggle module number(s), comma-separated; Enter to continue: ' >&2
@@ -44,11 +44,15 @@ select_modules_interactive() {
                 continue
             fi
             i=$((number-1))
-            if [[ "${selected[$i]}" == "1" ]]; then selected[$i]=0; else selected[$i]=1; fi
+            if [[ "${selected[i]}" == "1" ]]; then
+                selected[i]=0
+            else
+                selected[i]=1
+            fi
         done
     done
 
     for ((i=0; i<${#known_modules[@]}; i++)); do
-        [[ "${selected[$i]}" == "1" ]] && printf '%s\n' "${known_modules[$i]}"
+        [[ "${selected[i]}" == "1" ]] && printf '%s\n' "${known_modules[i]}"
     done
 }
