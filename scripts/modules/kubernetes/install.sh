@@ -95,9 +95,21 @@ for cmd in kubectl helm kind k9s kubectx; do
     command -v "${cmd}" >/dev/null 2>&1 || { log_error "${cmd} not found"; exit 1; }
 done
 
-kubectl version --client
-helm version --short
-kind version
-k9s version
+kubectl_output="$(kubectl version --client --output=json | tr -d '[:space:]')"
+printf '%s\n' "${kubectl_output}"
+printf '%s\n' "${kubectl_output}" | grep -q "\"gitVersion\":\"v${KUBERNETES_PATCH}\"" || { log_error "kubectl version mismatch: expected v${KUBERNETES_PATCH}"; exit 1; }
+
+helm_output="$(helm version --short)"
+printf '%s\n' "${helm_output}"
+printf '%s\n' "${helm_output}" | grep -q "^${HELM_VERSION}" || { log_error "Helm version mismatch: expected ${HELM_VERSION}"; exit 1; }
+
+kind_output="$(kind version)"
+printf '%s\n' "${kind_output}"
+printf '%s\n' "${kind_output}" | grep -q "${KIND_VERSION#v}" || { log_error "kind version mismatch: expected ${KIND_VERSION}"; exit 1; }
+
+k9s_output="$(k9s version)"
+printf '%s\n' "${k9s_output}"
+printf '%s\n' "${k9s_output}" | grep -q "${K9S_VERSION#v}" || { log_error "k9s version mismatch: expected ${K9S_VERSION}"; exit 1; }
+
 kubectx --help >/dev/null
 log_success "Kubernetes tooling validated"

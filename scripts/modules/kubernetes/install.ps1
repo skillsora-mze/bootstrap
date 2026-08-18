@@ -6,13 +6,16 @@ $ErrorActionPreference = 'Stop'
 
 $versions = Get-VersionConfig -Path (Join-Path $RootDir 'config/versions.env')
 
-# WinGet has the pinned kubectl and kind releases; keep those package-managed.
 Install-WingetPackage -Id 'Kubernetes.kubectl' -Version $versions.KUBERNETES_PATCH
-Install-WingetPackage -Id 'Kubernetes.kind' -Version $versions.KIND_VERSION.TrimStart('v')
-Install-WingetPackage -Id 'Derailed.k9s' -Version $versions.K9S_VERSION.TrimStart('v')
-Install-WingetPackage -Id 'ahmetb.kubectx' -Version $versions.KUBECTX_VERSION.TrimStart('v')
+$kindVersion = $versions.KIND_VERSION.TrimStart('v')
+$k9sVersion = $versions.K9S_VERSION.TrimStart('v')
+$kubectxVersion = $versions.KUBECTX_VERSION.TrimStart('v')
 
-# Current WinGet Helm package tracks Helm 4; install the pinned Helm 3 archive instead.
+Install-WingetPackage -Id 'Kubernetes.kind' -Version $kindVersion
+Install-WingetPackage -Id 'Derailed.k9s' -Version $k9sVersion
+Install-WingetPackage -Id 'ahmetb.kubectx' -Version $kubectxVersion
+
+# WinGet tracks Helm 4; install the pinned Helm 3 release archive instead.
 $helmVersion = $versions.HELM_VERSION
 $helmArchive = "helm-$helmVersion-windows-amd64.zip"
 $helmArgs = @{
@@ -24,16 +27,21 @@ $helmArgs = @{
 }
 Install-VerifiedZipTool @helmArgs | Out-Null
 
-foreach ($cmd in @('kubectl.exe','helm.exe','kind.exe','k9s.exe','kubectx.exe')) { Assert-Command -Name $cmd }
+foreach ($cmd in @('kubectl','helm','kind','k9s','kubectx')) { Assert-Command -Name $cmd }
 
-$kubectlClient = (& kubectl.exe version --client --output=json | ConvertFrom-Json).clientVersion.gitVersion
+$kubectlResult = Invoke-NativeCommand -FilePath 'kubectl' -ArgumentList @('version','--client','--output=json') -Quiet
+$kubectlClient = (($kubectlResult.Output -join [Environment]::NewLine) | ConvertFrom-Json).clientVersion.gitVersion
 if ($kubectlClient -ne "v$($versions.KUBERNETES_PATCH)") {
     throw "kubectl version mismatch: expected v$($versions.KUBERNETES_PATCH), got $kubectlClient"
 }
-$helmActual = (& helm.exe version --short).Trim()
-if (-not $helmActual.StartsWith($helmVersion)) { throw "Helm version mismatch: expected $helmVersion, got $helmActual" }
 
-& kind.exe version
-& k9s.exe version
-& kubectx.exe --help *> $null
+$helmResult = Invoke-NativeCommand -FilePath 'helm' -ArgumentList @('version','--short') -Quiet
+$helmActual = ($helmResult.Output -join '').Trim()
+if (-not $helmActual.StartsWith($helmVersion)) {
+    throw "Helm version mismatch: expected $helmVersion, got $helmActual"
+}
+
+Invoke-NativeCommand -FilePath 'kind' -ArgumentList @('version') | Out-Null
+Invoke-NativeCommand -FilePath 'k9s' -ArgumentList @('version') | Out-Null
+Invoke-NativeCommand -FilePath 'kubectx' -ArgumentList @('--help') -Quiet | Out-Null
 Write-Success 'Kubernetes tooling validated'

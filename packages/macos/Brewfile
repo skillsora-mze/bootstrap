@@ -22,7 +22,6 @@ brew "gh"
 
 # AWS
 brew "awscli"
-brew "aws-sam-cli"
 
 # Microsoft Azure
 brew "azure-cli"

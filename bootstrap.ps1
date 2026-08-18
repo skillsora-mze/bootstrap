@@ -1,8 +1,15 @@
 [CmdletBinding()]
-param()
+param(
+    [switch]$Interactive,
+    [switch]$NonInteractive
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+if ($Interactive -and $NonInteractive) {
+    throw 'Use either -Interactive or -NonInteractive, not both.'
+}
 
 $RootDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 . (Join-Path $RootDir 'scripts/lib/windows.ps1')
@@ -15,12 +22,17 @@ $configPath = Join-Path $RootDir 'config/bootstrap.yaml'
 $version = Get-BootstrapVersion -ConfigPath $configPath
 $enabledModules = @(Get-EnabledModules -ConfigPath $configPath)
 
+$useInteractive = $Interactive -or (-not $NonInteractive -and -not $env:CI -and [Environment]::UserInteractive)
+if ($useInteractive) {
+    $enabledModules = @(Select-ModulesInteractive -DefaultModules $enabledModules)
+}
+
 Write-Info "Version: $version"
 Write-Info 'Operating system: windows'
 Write-Info 'Architecture: amd64'
 Write-Info "Windows build: $([Environment]::OSVersion.Version.Build)"
+Write-Info "Selected modules: $($enabledModules -join ', ')"
 
-# Fail before package changes when the selected container runtime cannot work.
 if ($enabledModules -contains 'containers') {
     Assert-WslReady
 }

@@ -1,45 +1,52 @@
 # AI Context
 
-This file is a source of truth for automated assistants working on Workstation Bootstrap.
+## Project
 
-## Mission
+Workstation Bootstrap prepares reproducible training workstations for cloud, DevOps and Kubernetes labs.
 
-Provide a simple, modular, idempotent and configuration-driven workstation bootstrap for instructor-led cloud, DevOps and Kubernetes training.
+## Source-of-truth order
+
+1. `AI_CONTEXT.md`
+2. `PROJECT_OVERVIEW.md`
+3. `CURRENT_STATE.md`
+4. `PROJECT_DECISIONS.md`
+
+Implementation and documentation must remain aligned with these files.
+
+## Principles
+
+- simplicity
+- modularity
+- idempotence
+- configuration-driven behavior
+- explicit multi-platform support
+- safe, reversible changes
+- no embedded credentials
+- vendor-supported installation methods where practical
 
 ## Supported platforms
 
-- macOS 14+ on Apple Silicon (arm64), using OrbStack as the container runtime.
-- Debian 12 on amd64 or arm64, using Docker Engine from Docker's official APT repository.
-- Windows 11 24H2+ (build 26100+) on x64, using Rancher Desktop with Moby (`dockerd`). WSL2 is a prerequisite for the runtime, but the bootstrap itself runs natively in PowerShell.
+| Platform | Architecture | Runtime |
+|---|---|---|
+| macOS 14+ | Apple Silicon / arm64 | OrbStack |
+| Debian 12 | amd64, arm64 | Docker Engine CE |
+| Windows 11 23H2+ (build 22631+) | x64/amd64 | Rancher Desktop + Moby |
 
-Other platforms are unsupported until they have an implementation and validation coverage.
+Windows uses native PowerShell for the bootstrap. Rancher Desktop uses WSL2 internally.
 
-## Architecture rules
+## Modules
 
-- `bootstrap.sh` is the entry point for macOS and Debian.
-- `bootstrap.ps1` is the native Windows entry point.
-- Feature selection is controlled by `config/bootstrap.yaml`.
-- Toolchain baseline values live in `config/versions.env`.
-- Modules live under `scripts/modules/<name>/install.sh` and/or `install.ps1`.
-- Bash modules run in isolated subshells; PowerShell modules run as scripts with strict error handling.
-- Modules must be safe to run repeatedly.
-- Prefer signed vendor repositories and package managers over remote install scripts.
-- Never embed credentials, tokens or private keys.
-- Do not add a platform to the support matrix until all enabled modules have an explicit behavior on it.
+`system_packages`, `containers`, `aws`, `azure`, `hashicorp`, `kubernetes`, `terminal`.
 
-## Container policy
+Module defaults are stored in `config/bootstrap.yaml`. Interactive selection is an execution-time override and must not rewrite the configuration file.
 
-- macOS: OrbStack only. Do not add Docker Desktop.
-- Debian: Docker Engine CE from Docker's official repository.
-- Windows: Rancher Desktop with Moby and Rancher Desktop Kubernetes disabled. WSL2 is required by Rancher Desktop.
-- The Docker-compatible CLI remains required because Compose and kind use the Docker API.
+## Entry points
 
-## Windows policy
+- macOS/Linux: `./bootstrap.sh`
+- Windows: `.\bootstrap.ps1`
 
-- Windows bootstrap is native PowerShell, not Git Bash and not a bootstrap executed inside WSL.
-- Windows ARM64 is out of scope for v1.4.1.
-- Ansible is not installed as a native Windows control node; use WSL2 for Ansible-specific labs.
+When run from an interactive terminal, both entry points present module selection. CI and unattended execution use `--non-interactive` or `-NonInteractive`.
 
-## Change policy
+## Release policy
 
-Use feature branches. Before merge: run platform static checks, update documentation and CHANGELOG, then validate the full bootstrap and a second idempotence run on each supported platform.
+Static CI is necessary but not sufficient. A release is production-validated only after a full first run and a second idempotence run on each supported platform, followed by the platform verification script.

@@ -7,112 +7,79 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $RootDir 'scripts/lib/windows.ps1')
 
 Write-Info 'Configuring Rancher Desktop with Moby (dockerd)'
-
 Assert-WslReady
 
 $versions = Get-VersionConfig -Path (Join-Path $RootDir 'config/versions.env')
-
 Install-WingetPackage -Id 'SUSE.RancherDesktop' -Version $versions.RANCHER_DESKTOP_VERSION
-
 Refresh-ProcessPath
 
 $rdctlCommand = Get-Command rdctl.exe -ErrorAction SilentlyContinue
 $rdctlPath = if ($rdctlCommand) { $rdctlCommand.Source } else { $null }
-
 if (-not $rdctlPath) {
     $candidate = Join-Path $env:ProgramFiles 'Rancher Desktop/resources/resources/win32/bin/rdctl.exe'
-    if (Test-Path -LiteralPath $candidate -PathType Leaf) {
-        $rdctlPath = $candidate
-    }
+    if (Test-Path -LiteralPath $candidate -PathType Leaf) { $rdctlPath = $candidate }
 }
+if (-not $rdctlPath) { throw 'Rancher Desktop installed but rdctl.exe was not found.' }
 
-if (-not $rdctlPath) {
-    throw 'Rancher Desktop installed but rdctl.exe was not found.'
-}
+# Start rdctl asynchronously so a first-run initialization cannot block bootstrap.ps1.
+$startArgs = @(
+    'start',
+    '--application.start-in-background=true',
+    '--application.path-management-strategy=manual',
+    '--application.updater.enabled=false',
+    '--container-engine.name=moby',
+    '--kubernetes.enabled=false'
+)
+Write-Info 'Starting Rancher Desktop in background'
+Start-Process -FilePath $rdctlPath -ArgumentList $startArgs -WindowStyle Hidden | Out-Null
 
-# First launch must not block the bootstrap process.
-$rancherDesktopExe = Join-Path $env:ProgramFiles 'Rancher Desktop/Rancher Desktop.exe'
-
-if (-not (Get-Process -Name 'Rancher Desktop' -ErrorAction SilentlyContinue)) {
-    if (-not (Test-Path -LiteralPath $rancherDesktopExe -PathType Leaf)) {
-        throw 'Rancher Desktop executable was not found.'
-    }
-
-    Write-Info 'Starting Rancher Desktop'
-    Start-Process -FilePath $rancherDesktopExe | Out-Null
-}
-
-# Wait for the Rancher Desktop API to become available.
 $deadline = (Get-Date).AddMinutes(5)
-$rdctlReady = $false
-
+$settings = $null
 do {
-    $previousErrorActionPreference = $ErrorActionPreference
-    $ErrorActionPreference = 'Continue'
-
-    try {
-        & $rdctlPath list-settings *> $null
-        $rdctlExitCode = $LASTEXITCODE
+    $result = Invoke-NativeCommand -FilePath $rdctlPath -ArgumentList @('list-settings') -AllowFailure -Quiet
+    if ($result.ExitCode -eq 0 -and $result.Output.Count -gt 0) {
+        try {
+            $settings = (($result.Output -join [Environment]::NewLine) | ConvertFrom-Json)
+        }
+        catch {
+            $settings = $null
+        }
     }
-    finally {
-        $ErrorActionPreference = $previousErrorActionPreference
-    }
-
-    if ($rdctlExitCode -eq 0) {
-        $rdctlReady = $true
-        break
-    }
-
+    if ($settings) { break }
     Start-Sleep -Seconds 3
 } while ((Get-Date) -lt $deadline)
 
-if (-not $rdctlReady) {
+if (-not $settings) {
     throw 'Rancher Desktop did not become ready within 5 minutes.'
 }
 
-# Standard workstation runtime:
-# - Moby exposes the Docker API required by Docker-compatible tooling.
-# - Kubernetes is provided by kind, not Rancher Desktop.
-& $rdctlPath set --container-engine.name=moby --kubernetes-enabled=false | Out-Null
+# Enforce the training baseline even if Rancher Desktop was previously configured.
+Invoke-NativeCommand -FilePath $rdctlPath -ArgumentList @('set','--application.path-management-strategy=manual','--application.updater.enabled=false','--container-engine.name=moby','--kubernetes-enabled=false') -Quiet | Out-Null
 
-Refresh-ProcessPath
-
-Assert-Command -Name 'docker.exe'
-
-# Docker Desktop may leave desktop-linux selected after migration.
-# Rancher Desktop Moby exposes its engine through the default context.
-$currentContext = (& docker.exe context show 2>$null).Trim()
-
-if ($currentContext -ne 'default') {
-    Write-Info "Switching Docker context from '$currentContext' to 'default'"
-    & docker.exe context use default | Out-Null
-
-    if ($LASTEXITCODE -ne 0) {
-        throw 'Unable to switch Docker context to default.'
-    }
+# Rancher Desktop keeps its CLI utilities in ~/.rd/bin when PATH management is manual.
+$rdBin = Join-Path $HOME '.rd\bin'
+if (Test-Path -LiteralPath $rdBin -PathType Container) {
+    Add-UserPathEntry -Path $rdBin
 }
 
-# Wait for the Moby engine to answer Docker API requests.
+Refresh-ProcessPath
+Assert-Command -Name 'docker'
+
+$currentContextResult = Invoke-NativeCommand -FilePath 'docker' -ArgumentList @('context','show') -AllowFailure -Quiet
+$currentContext = if ($currentContextResult.Output.Count -gt 0) { $currentContextResult.Output[0].Trim() } else { '' }
+if ($currentContext -ne 'default') {
+    Write-Info "Switching Docker context from '$currentContext' to 'default'"
+    Invoke-NativeCommand -FilePath 'docker' -ArgumentList @('context','use','default') -Quiet | Out-Null
+}
+
 $deadline = (Get-Date).AddMinutes(5)
 $dockerReady = $false
-
 do {
-    $previousErrorActionPreference = $ErrorActionPreference
-    $ErrorActionPreference = 'Continue'
-
-    try {
-        & docker.exe info *> $null
-        $dockerExitCode = $LASTEXITCODE
-    }
-    finally {
-        $ErrorActionPreference = $previousErrorActionPreference
-    }
-
-    if ($dockerExitCode -eq 0) {
+    $dockerInfo = Invoke-NativeCommand -FilePath 'docker' -ArgumentList @('info') -AllowFailure -Quiet
+    if ($dockerInfo.ExitCode -eq 0) {
         $dockerReady = $true
         break
     }
-
     Start-Sleep -Seconds 3
 } while ((Get-Date) -lt $deadline)
 
@@ -120,7 +87,6 @@ if (-not $dockerReady) {
     throw 'Rancher Desktop Moby engine did not become ready within 5 minutes.'
 }
 
-& docker.exe --version
-& docker.exe compose version
-
+Invoke-NativeCommand -FilePath 'docker' -ArgumentList @('--version') | Out-Null
+Invoke-NativeCommand -FilePath 'docker' -ArgumentList @('compose','version') | Out-Null
 Write-Success 'Rancher Desktop / Moby runtime validated'

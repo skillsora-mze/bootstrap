@@ -32,13 +32,48 @@ function Get-BootstrapVersion {
     return $line.Matches[0].Groups[1].Value.Trim()
 }
 
+function Get-KnownModules {
+    return @('system_packages','containers','aws','azure','hashicorp','kubernetes','terminal')
+}
+
 function Get-EnabledModules {
     param([Parameter(Mandatory)][string]$ConfigPath)
-    $known = @('system_packages','containers','aws','azure','hashicorp','kubernetes','terminal')
     $content = Get-Content -LiteralPath $ConfigPath
-    foreach ($module in $known) {
+    foreach ($module in (Get-KnownModules)) {
         if ($content -match "^\s{2}$([regex]::Escape($module)):\s*true\s*$") { $module }
     }
+}
+
+function Select-ModulesInteractive {
+    param([Parameter(Mandatory)][string[]]$DefaultModules)
+
+    $known = @(Get-KnownModules)
+    $selected = @{}
+    foreach ($module in $known) { $selected[$module] = ($DefaultModules -contains $module) }
+
+    while ($true) {
+        Write-Section 'Module selection'
+        for ($i = 0; $i -lt $known.Count; $i++) {
+            $module = $known[$i]
+            $mark = if ($selected[$module]) { 'x' } else { ' ' }
+            Write-Host ("{0}. [{1}] {2}" -f ($i + 1), $mark, $module)
+        }
+        Write-Host ''
+        $answer = Read-Host 'Toggle module number(s), comma-separated; Enter to continue'
+        if ([string]::IsNullOrWhiteSpace($answer)) { break }
+
+        foreach ($token in ($answer -split '[,\s]+' | Where-Object { $_ })) {
+            $number = 0
+            if (-not [int]::TryParse($token, [ref]$number) -or $number -lt 1 -or $number -gt $known.Count) {
+                Write-Warn "Ignoring invalid module selection: $token"
+                continue
+            }
+            $module = $known[$number - 1]
+            $selected[$module] = -not $selected[$module]
+        }
+    }
+
+    return @($known | Where-Object { $selected[$_] })
 }
 
 function Get-VersionConfig {
@@ -59,10 +94,57 @@ function Refresh-ProcessPath {
     $env:Path = @($machine, $user) -join ';'
 }
 
+function Invoke-NativeCommand {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$FilePath,
+        [string[]]$ArgumentList = @(),
+        [switch]$AllowFailure,
+        [switch]$Quiet
+    )
+
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $output = @(& $FilePath @ArgumentList 2>&1)
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previous
+    }
+
+    if (-not $Quiet) {
+        foreach ($line in $output) { Write-Host $line.ToString() }
+    }
+
+    if ($exitCode -ne 0 -and -not $AllowFailure) {
+        $detail = ($output | ForEach-Object { $_.ToString() }) -join [Environment]::NewLine
+        throw "Native command failed ($exitCode): $FilePath $($ArgumentList -join ' ')`n$detail"
+    }
+
+    return [pscustomobject]@{
+        ExitCode = $exitCode
+        Output = @($output | ForEach-Object { $_.ToString() })
+    }
+}
+
+function Get-WingetInstalledVersion {
+    param([Parameter(Mandatory)][string]$Id)
+    $result = Invoke-NativeCommand -FilePath 'winget.exe' -ArgumentList @('list','--id',$Id,'--exact','--source','winget','--accept-source-agreements','--disable-interactivity') -AllowFailure -Quiet
+    if ($result.ExitCode -ne 0) { return $null }
+    foreach ($line in $result.Output) {
+        if ($line -match ([regex]::Escape($Id) + '\s+([0-9][0-9A-Za-z._+-]*)')) {
+            return $Matches[1]
+        }
+    }
+    # Package was reported by WinGet but its localized table could not be parsed.
+    # Preserve the installed state; pinned callers will stop rather than guess a version.
+    return ''
+}
+
 function Test-WingetPackageInstalled {
     param([Parameter(Mandatory)][string]$Id)
-    & winget.exe list --id $Id --exact --source winget --accept-source-agreements 2>$null | Out-Null
-    return ($LASTEXITCODE -eq 0)
+    return ($null -ne (Get-WingetInstalledVersion -Id $Id))
 }
 
 function Install-WingetPackage {
@@ -70,16 +152,41 @@ function Install-WingetPackage {
         [Parameter(Mandatory)][string]$Id,
         [string]$Version
     )
-    if (Test-WingetPackageInstalled -Id $Id) {
-        Write-Info "$Id already installed"
+
+    $installedVersion = Get-WingetInstalledVersion -Id $Id
+    if ($null -ne $installedVersion) {
+        if (-not $Version -or $installedVersion -eq $Version) {
+            $suffix = if ($installedVersion) { " ($installedVersion)" } else { '' }
+            Write-Info "$Id already installed$suffix"
+            return
+        }
+
+        try {
+            $installed = [version]$installedVersion
+            $target = [version]$Version
+        }
+        catch {
+            throw "$Id is installed at version '$installedVersion', but baseline '$Version' is required. Update it explicitly, then rerun."
+        }
+
+        if ($installed -eq $target) {
+            Write-Info "$Id already installed ($installedVersion)"
+            return
+        }
+        if ($installed -gt $target) {
+            throw "$Id version $installedVersion is newer than pinned baseline $Version. Automatic downgrade is intentionally disabled."
+        }
+
+        Write-Info "Upgrading $Id from $installedVersion to $Version"
+        Invoke-NativeCommand -FilePath 'winget.exe' -ArgumentList @('upgrade','--id',$Id,'--exact','--source','winget','--version',$Version,'--accept-package-agreements','--accept-source-agreements','--disable-interactivity') | Out-Null
+        Refresh-ProcessPath
         return
     }
 
     Write-Info "Installing $Id"
     $args = @('install','--id',$Id,'--exact','--source','winget','--accept-package-agreements','--accept-source-agreements','--disable-interactivity')
     if ($Version) { $args += @('--version', $Version) }
-    & winget.exe @args
-    if ($LASTEXITCODE -ne 0) { throw "WinGet failed for $Id (exit code $LASTEXITCODE)." }
+    Invoke-NativeCommand -FilePath 'winget.exe' -ArgumentList $args | Out-Null
     Refresh-ProcessPath
 }
 
@@ -93,8 +200,8 @@ function Assert-Command {
 
 function Test-WslReady {
     if (-not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) { return $false }
-    & wsl.exe --status *> $null
-    return ($LASTEXITCODE -eq 0)
+    $result = Invoke-NativeCommand -FilePath 'wsl.exe' -ArgumentList @('--status') -AllowFailure -Quiet
+    return ($result.ExitCode -eq 0)
 }
 
 function Assert-WslReady {
@@ -104,11 +211,15 @@ function Assert-WslReady {
 }
 
 function Add-UserPathEntry {
-    param([Parameter(Mandatory)][string]$Path)
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [switch]$Prepend
+    )
     $current = [Environment]::GetEnvironmentVariable('Path', 'User')
-    $entries = @($current -split ';' | Where-Object { $_ })
-    if ($entries -notcontains $Path) {
-        $newValue = (@($entries) + $Path) -join ';'
+    $entries = @($current -split ';' | Where-Object { $_ -and $_ -ne $Path })
+    $newEntries = if ($Prepend) { @($Path) + $entries } else { $entries + @($Path) }
+    $newValue = $newEntries -join ';'
+    if ($newValue -ne $current) {
         [Environment]::SetEnvironmentVariable('Path', $newValue, 'User')
     }
     Refresh-ProcessPath
@@ -127,7 +238,7 @@ function Install-VerifiedZipTool {
     $destination = Join-Path $binDir $DestinationFile
     if (Test-Path -LiteralPath $destination) {
         Write-Info "$Name already installed at $destination"
-        Add-UserPathEntry -Path $binDir
+        Add-UserPathEntry -Path $binDir -Prepend
         return $destination
     }
 
@@ -145,7 +256,7 @@ function Install-VerifiedZipTool {
         $source = Join-Path $tempDir $ArchiveRelativePath
         if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { throw "$Name executable not found in archive: $ArchiveRelativePath" }
         Copy-Item -LiteralPath $source -Destination $destination -Force
-        Add-UserPathEntry -Path $binDir
+        Add-UserPathEntry -Path $binDir -Prepend
         return $destination
     }
     finally {

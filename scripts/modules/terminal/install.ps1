@@ -10,9 +10,6 @@ $managedProfile = Join-Path $managedDir 'Microsoft.PowerShell_profile.ps1'
 New-Item -ItemType Directory -Force -Path $managedDir | Out-Null
 Copy-Item -LiteralPath $source -Destination $managedProfile -Force
 
-$profileDir = Split-Path -Parent $PROFILE.CurrentUserAllHosts
-$profilePath = $PROFILE.CurrentUserAllHosts
-New-Item -ItemType Directory -Force -Path $profileDir | Out-Null
 $markerStart = '# >>> Workstation Bootstrap >>>'
 $markerEnd = '# <<< Workstation Bootstrap <<<'
 $block = @"
@@ -21,12 +18,28 @@ $markerStart
 $markerEnd
 "@
 
-$current = if (Test-Path $profilePath) { Get-Content -Raw $profilePath } else { '' }
-$pattern = [regex]::Escape($markerStart) + '.*?' + [regex]::Escape($markerEnd)
-if ($current -match $pattern) {
-    $updated = [regex]::Replace($current, $pattern, $block, [Text.RegularExpressions.RegexOptions]::Singleline)
-    Set-Content -Path $profilePath -Value $updated -Encoding utf8
-} else {
-    Add-Content -Path $profilePath -Value "`n$block" -Encoding utf8
+function Set-ManagedProfileBlock {
+    param([Parameter(Mandatory)][string]$ProfilePath)
+    $profileDir = Split-Path -Parent $ProfilePath
+    New-Item -ItemType Directory -Force -Path $profileDir | Out-Null
+    $current = if (Test-Path $ProfilePath) { Get-Content -Raw $ProfilePath } else { '' }
+    $pattern = [regex]::Escape($markerStart) + '.*?' + [regex]::Escape($markerEnd)
+    if ($current -match $pattern) {
+        $updated = [regex]::Replace($current, $pattern, $block, [Text.RegularExpressions.RegexOptions]::Singleline)
+        Set-Content -Path $ProfilePath -Value $updated -Encoding utf8
+    }
+    else {
+        Add-Content -Path $ProfilePath -Value "`n$block" -Encoding utf8
+    }
+    Write-Success "PowerShell profile configured: $ProfilePath"
 }
-Write-Success "PowerShell profile configured: $profilePath"
+
+$documents = [Environment]::GetFolderPath('MyDocuments')
+$profilePaths = @(
+    (Join-Path $documents 'WindowsPowerShell/profile.ps1'),
+    (Join-Path $documents 'PowerShell/profile.ps1')
+) | Select-Object -Unique
+
+foreach ($profilePath in $profilePaths) {
+    Set-ManagedProfileBlock -ProfilePath $profilePath
+}

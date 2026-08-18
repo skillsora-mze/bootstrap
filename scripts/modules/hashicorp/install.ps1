@@ -7,9 +7,9 @@ $ErrorActionPreference = 'Stop'
 Install-WingetPackage -Id 'Hashicorp.Terraform'
 Install-WingetPackage -Id 'Hashicorp.Packer'
 Install-WingetPackage -Id 'HashiCorp.Vagrant'
-foreach ($cmd in @('terraform.exe','packer.exe','vagrant.exe')) { Assert-Command -Name $cmd }
-& terraform.exe version
-& packer.exe version
-& vagrant.exe --version
+foreach ($cmd in @('terraform','packer','vagrant')) { Assert-Command -Name $cmd }
+Invoke-NativeCommand -FilePath 'terraform' -ArgumentList @('version') | Out-Null
+Invoke-NativeCommand -FilePath 'packer' -ArgumentList @('version') | Out-Null
+Invoke-NativeCommand -FilePath 'vagrant' -ArgumentList @('--version') | Out-Null
 Write-Warn 'Ansible control-node execution is not supported natively on Windows; use WSL2 for Ansible labs.'
 Write-Success 'HashiCorp tooling validated'

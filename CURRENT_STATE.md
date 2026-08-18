@@ -1,33 +1,34 @@
 # Current State
 
-Current release candidate: **v1.4.1**.
+## Version
+
+`1.5.0` release candidate.
 
 ## Implemented
 
-- Native entry points for macOS/Debian (`bootstrap.sh`) and Windows (`bootstrap.ps1`).
-- macOS 14+ Apple Silicon with OrbStack.
-- Debian 12 amd64/arm64 with Docker Engine.
-- Windows 11 23H2+ x64 with WinGet and Rancher Desktop/Moby; WSL2 preflight occurs before package changes.
-- Platform-neutral module layout with Bash and PowerShell implementations.
-- Signed APT repositories for Docker, Microsoft Azure CLI, HashiCorp and Kubernetes.
-- No direct `curl | bash` pipelines in project code.
-- Pinned Kubernetes training baseline in `config/versions.env`.
-- Helm 3 baseline preserved across platforms; macOS uses `helm@3` rather than the current Helm 4 default formula.
-- Idempotent shell and PowerShell profile integration.
-- Bash, macOS static and Windows PowerShell CI jobs.
-- Runtime verification scripts for Unix and Windows.
-
-## Windows capability note
-
-AWS, Azure, HashiCorp CLIs, Kubernetes tools and container workflows are native Windows commands. Rancher Desktop uses WSL2 internally. Ansible is intentionally not installed as a native Windows control node; use WSL2 for Ansible-specific labs.
+- macOS Apple Silicon with OrbStack.
+- Debian 12 amd64/arm64 with Docker Engine CE.
+- Windows 11 23H2+ x64 with Rancher Desktop/Moby and WSL2 preflight.
+- Interactive module selection on Bash and PowerShell, with non-interactive CI mode.
+- Windows native-command wrapper that treats exit codes as authoritative and prevents harmless stderr warnings from aborting the bootstrap.
+- Rancher Desktop first-run startup in background, Moby enforcement, embedded Kubernetes disabled, and stale Docker Desktop context recovery to `default`.
+- AWS SAM command resolution using `sam` rather than the incorrect Windows-only assumption `sam.exe`.
+- Both Windows PowerShell 5.1 and PowerShell 7 profile locations configured idempotently.
+- WinGet version enforcement for pinned packages: automatic upgrade to the requested version; automatic downgrade intentionally blocked.
+- Helm 3 baseline preserved across platforms.
+- AWS SAM clean macOS installs use the AWS first-party package installer; Debian installs remain pinned and checksum-verified.
+- Debian `azd` uses pinned release artifacts with SHA-256 verification rather than a mutable installer script.
+- CI jobs for Bash, macOS and Windows; Windows CI parses scripts with Windows PowerShell 5.1 and runs PSScriptAnalyzer under PowerShell 7.
 
 ## Validation status
 
-Static validation is automated. **v1.4.1 is not production-validated until real-host smoke tests and second-run idempotence tests pass on macOS Apple Silicon, Debian 12 and Windows 11 x64.**
+Static validation is automated. Windows runtime testing has already exposed and driven fixes for Rancher Desktop first-run behavior, stale Docker contexts and native stderr handling.
 
-## Known residual risks
+**v1.5.0 is not production-validated until the complete smoke-test matrix and second-run idempotence checks in `docs/RELEASE_CHECKLIST.md` pass.**
 
-- Homebrew and WinGet packages can evolve outside the repository when a package is not explicitly version-pinned.
-- AWS CLI v2 Linux follows the official AWS current installer endpoint; SAM CLI is pinned and SHA-256 verified.
-- Some Linux Kubernetes release binaries remain version-pinned without repository-stored hashes; Helm is SHA-256 verified.
-- GUI/runtime startup (OrbStack and Rancher Desktop) cannot be fully proven by static CI.
+## Residual risks
+
+- Package-manager tools without explicit version pins follow their vendor/package-manager stable channels.
+- AWS CLI v2 Linux uses AWS's current official installer endpoint; its archive is not repository-pinned by SHA-256.
+- GUI/runtime behavior such as OrbStack and Rancher Desktop startup cannot be fully proven by static CI.
+- Existing macOS Homebrew installations of `aws-sam-cli` are accepted with a warning; clean installs use AWS's first-party package.

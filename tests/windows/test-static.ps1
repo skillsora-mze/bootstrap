@@ -8,16 +8,35 @@ foreach ($module in $modules) {
     $path = Join-Path $RootDir "scripts/modules/$module/install.ps1"
     if (-not (Test-Path $path)) { throw "Missing Windows module: $module" }
 }
+
 $config = Join-Path $RootDir 'config/bootstrap.yaml'
-if ((Get-BootstrapVersion -ConfigPath $config) -ne '1.4.1') { throw 'Unexpected bootstrap version' }
+if ((Get-BootstrapVersion -ConfigPath $config) -ne '1.5.0') { throw 'Unexpected bootstrap version' }
 $enabled = @(Get-EnabledModules -ConfigPath $config)
 if (($enabled -join ',') -ne ($modules -join ',')) { throw "Unexpected module order: $($enabled -join ',')" }
+
 $packages = Import-PowerShellDataFile (Join-Path $RootDir 'packages/windows/packages.psd1')
 if ($packages.SystemPackages.Count -lt 5) { throw 'Windows package manifest unexpectedly small' }
+
 $bootstrap = Get-Content -Raw (Join-Path $RootDir 'bootstrap.ps1')
 if ($bootstrap -notmatch 'Assert-WslReady') { throw 'Windows bootstrap must fail fast on missing WSL2 when containers are enabled' }
+if ($bootstrap -notmatch 'Select-ModulesInteractive' -or $bootstrap -notmatch 'NonInteractive') { throw 'Interactive/non-interactive module selection missing' }
+
+$windowsLib = Get-Content -Raw (Join-Path $RootDir 'scripts/lib/windows.ps1')
+if ($windowsLib -notmatch 'Invoke-NativeCommand') { throw 'Native command wrapper missing' }
+if ($windowsLib -notmatch 'build -lt 22631') { throw 'Windows 11 23H2 baseline missing' }
+
 $containerModule = Get-Content -Raw (Join-Path $RootDir 'scripts/modules/containers/install.ps1')
 if ($containerModule -notmatch 'SUSE.RancherDesktop' -or $containerModule -notmatch 'container-engine.name=moby') { throw 'Rancher Desktop Moby baseline missing' }
+if ($containerModule -notmatch 'application.start-in-background=true') { throw 'Headless Rancher Desktop first-run configuration missing' }
+if ($containerModule -notmatch "context','use','default") { throw 'Docker default-context recovery missing' }
+
+$awsModule = Get-Content -Raw (Join-Path $RootDir 'scripts/modules/aws/install.ps1')
+if ($awsModule -match 'sam\.exe' -or $awsModule -notmatch "Assert-Command -Name 'sam'") { throw 'AWS SAM command resolution is not portable' }
+
 $kubeModule = Get-Content -Raw (Join-Path $RootDir 'scripts/modules/kubernetes/install.ps1')
 if ($kubeModule -notmatch 'get.helm.sh' -or $kubeModule -notmatch 'Install-VerifiedZipTool') { throw 'Pinned Helm 3 checksum installation missing' }
+
+$terminalModule = Get-Content -Raw (Join-Path $RootDir 'scripts/modules/terminal/install.ps1')
+if ($terminalModule -notmatch 'WindowsPowerShell/profile.ps1' -or $terminalModule -notmatch 'PowerShell/profile.ps1') { throw 'Both Windows PowerShell and PowerShell 7 profiles must be configured' }
+
 Write-Host 'Windows static tests passed'
