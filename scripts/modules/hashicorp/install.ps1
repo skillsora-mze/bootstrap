@@ -6,7 +6,7 @@ $ErrorActionPreference = 'Stop'
 
 Install-WingetPackage -Id 'Hashicorp.Terraform'
 Install-WingetPackage -Id 'Hashicorp.Packer'
-Install-WingetPackage -Id 'HashiCorp.Vagrant'
+Install-WingetPackage -Id 'Hashicorp.Vagrant'
 foreach ($cmd in @('terraform','packer','vagrant')) { Assert-Command -Name $cmd }
 Invoke-NativeCommand -FilePath 'terraform' -ArgumentList @('version') | Out-Null
 Invoke-NativeCommand -FilePath 'packer' -ArgumentList @('version') | Out-Null
