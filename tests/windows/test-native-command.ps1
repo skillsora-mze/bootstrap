@@ -9,4 +9,6 @@ if ($success.ExitCode -ne 0) { throw 'Native stderr with exit code 0 must be tre
 $failure = Invoke-NativeCommand -FilePath 'cmd.exe' -ArgumentList @('/d','/s','/c','echo expected-failure 1>&2 & exit /b 7') -AllowFailure -Quiet
 if ($failure.ExitCode -ne 7) { throw "Expected native exit code 7, got $($failure.ExitCode)." }
 
+$global:LASTEXITCODE = 0
 Write-Host 'Windows native-command tests passed'
+exit 0
