@@ -24,8 +24,9 @@ function Set-ManagedProfileBlock {
     New-Item -ItemType Directory -Force -Path $profileDir | Out-Null
     $current = if (Test-Path $ProfilePath) { Get-Content -Raw $ProfilePath } else { '' }
     $pattern = [regex]::Escape($markerStart) + '.*?' + [regex]::Escape($markerEnd)
-    if ($current -match $pattern) {
-        $updated = [regex]::Replace($current, $pattern, $block, [Text.RegularExpressions.RegexOptions]::Singleline)
+    $regexOptions = [Text.RegularExpressions.RegexOptions]::Singleline
+    if ([regex]::IsMatch($current, $pattern, $regexOptions)) {
+        $updated = [regex]::Replace($current, $pattern, $block, $regexOptions)
         Set-Content -Path $ProfilePath -Value $updated -Encoding utf8
     }
     else {
