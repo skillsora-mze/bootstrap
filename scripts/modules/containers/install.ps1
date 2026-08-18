@@ -47,9 +47,18 @@ $deadline = (Get-Date).AddMinutes(5)
 $rdctlReady = $false
 
 do {
-    & $rdctlPath list-settings *> $null
+    $previousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
 
-    if ($LASTEXITCODE -eq 0) {
+    try {
+        & $rdctlPath list-settings *> $null
+        $rdctlExitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+
+    if ($rdctlExitCode -eq 0) {
         $rdctlReady = $true
         break
     }
@@ -88,9 +97,18 @@ $deadline = (Get-Date).AddMinutes(5)
 $dockerReady = $false
 
 do {
-    & docker.exe info *> $null
+    $previousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
 
-    if ($LASTEXITCODE -eq 0) {
+    try {
+        & docker.exe info *> $null
+        $dockerExitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+
+    if ($dockerExitCode -eq 0) {
         $dockerReady = $true
         break
     }
