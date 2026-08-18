@@ -18,6 +18,15 @@ Install-WingetPackage -Id 'ahmetb.kubectx' -Version $kubectxVersion
 # WinGet tracks Helm 4; install the pinned Helm 3 release archive instead.
 $helmVersion = $versions.HELM_VERSION
 $helmArchive = "helm-$helmVersion-windows-amd64.zip"
+$managedHelm = Join-Path $HOME '.workstation-bootstrap/bin/helm.exe'
+if (Test-Path -LiteralPath $managedHelm -PathType Leaf) {
+    $managedHelmResult = Invoke-NativeCommand -FilePath $managedHelm -ArgumentList @('version','--short') -AllowFailure -Quiet
+    $managedHelmVersion = ($managedHelmResult.Output -join '').Trim()
+    if ($managedHelmResult.ExitCode -ne 0 -or -not $managedHelmVersion.StartsWith($helmVersion)) {
+        Write-Info "Replacing stale managed Helm binary ($managedHelmVersion)"
+        Remove-Item -LiteralPath $managedHelm -Force
+    }
+}
 $helmArgs = @{
     Name = 'Helm'
     Uri = "https://get.helm.sh/$helmArchive"
