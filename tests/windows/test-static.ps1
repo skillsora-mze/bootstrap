@@ -43,6 +43,7 @@ if ($hashicorpModule -cmatch "HashiCorp\.Vagrant") { throw 'Incorrect WinGet Vag
 
 $kubeModule = Get-Content -Raw (Join-Path $RootDir 'scripts/modules/kubernetes/install.ps1')
 if ($kubeModule -notmatch 'get.helm.sh' -or $kubeModule -notmatch 'Install-VerifiedZipTool') { throw 'Pinned Helm 3 checksum installation missing' }
+if ($kubeModule -notmatch 'managedHelm' -or $kubeModule -notmatch 'Replacing stale managed Helm binary') { throw 'Managed Helm version drift recovery missing' }
 
 $terminalModule = Get-Content -Raw (Join-Path $RootDir 'scripts/modules/terminal/install.ps1')
 if ($terminalModule -notmatch 'WindowsPowerShell/profile.ps1' -or $terminalModule -notmatch 'PowerShell/profile.ps1') { throw 'Both Windows PowerShell and PowerShell 7 profiles must be configured' }
