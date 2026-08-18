@@ -32,7 +32,7 @@ EOF2
 }
 
 install_azd_debian() {
-    local tmp_dir arch asset expected
+    local tmp_dir asset expected
     tmp_dir="$(with_temp_dir)"
     case "${ARCH}" in
         amd64)
