@@ -38,8 +38,8 @@ $azureModule = Get-Content -Raw (Join-Path $RootDir 'scripts/modules/azure/insta
 if ($azureModule -notmatch "Install-WingetPackage -Id 'Microsoft.Azd'" -or $azureModule -match "Microsoft\.Azd'.*-Version") { throw 'Microsoft.Azd must use the stable WinGet channel; package and product versions differ' }
 
 $hashicorpModule = Get-Content -Raw (Join-Path $RootDir 'scripts/modules/hashicorp/install.ps1')
-if ($hashicorpModule -notmatch "Install-WingetPackage -Id 'Hashicorp.Vagrant'") { throw 'Canonical WinGet Vagrant package id missing' }
-if ($hashicorpModule -match "HashiCorp\.Vagrant") { throw 'Incorrect WinGet Vagrant package-id casing present' }
+if ($hashicorpModule -cnotmatch "Install-WingetPackage -Id 'Hashicorp.Vagrant'") { throw 'Canonical WinGet Vagrant package id missing' }
+if ($hashicorpModule -cmatch "HashiCorp\.Vagrant") { throw 'Incorrect WinGet Vagrant package-id casing present' }
 
 $kubeModule = Get-Content -Raw (Join-Path $RootDir 'scripts/modules/kubernetes/install.ps1')
 if ($kubeModule -notmatch 'get.helm.sh' -or $kubeModule -notmatch 'Install-VerifiedZipTool') { throw 'Pinned Helm 3 checksum installation missing' }
