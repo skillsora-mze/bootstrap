@@ -28,15 +28,24 @@ if ($windowsLib -notmatch 'build -lt 22631') { throw 'Windows 11 23H2 baseline m
 $containerModule = Get-Content -Raw (Join-Path $RootDir 'scripts/modules/containers/install.ps1')
 if ($containerModule -notmatch 'SUSE.RancherDesktop' -or $containerModule -notmatch 'container-engine.name=moby') { throw 'Rancher Desktop Moby baseline missing' }
 if ($containerModule -notmatch 'application.start-in-background=true') { throw 'Headless Rancher Desktop first-run configuration missing' }
+if ($containerModule -match 'application.path-management-strategy') { throw 'Unsupported Rancher Desktop Windows PATH-management flag present' }
 if ($containerModule -notmatch "context','use','default") { throw 'Docker default-context recovery missing' }
 
 $awsModule = Get-Content -Raw (Join-Path $RootDir 'scripts/modules/aws/install.ps1')
 if ($awsModule -match 'sam\.exe' -or $awsModule -notmatch "Assert-Command -Name 'sam'") { throw 'AWS SAM command resolution is not portable' }
+
+$azureModule = Get-Content -Raw (Join-Path $RootDir 'scripts/modules/azure/install.ps1')
+if ($azureModule -notmatch "Install-WingetPackage -Id 'Microsoft.Azd'" -or $azureModule -match "Microsoft\.Azd'.*-Version") { throw 'Microsoft.Azd must use the stable WinGet channel; package and product versions differ' }
+
+$hashicorpModule = Get-Content -Raw (Join-Path $RootDir 'scripts/modules/hashicorp/install.ps1')
+if ($hashicorpModule -notmatch "Install-WingetPackage -Id 'Hashicorp.Vagrant'") { throw 'Canonical WinGet Vagrant package id missing' }
+if ($hashicorpModule -match "HashiCorp\.Vagrant") { throw 'Incorrect WinGet Vagrant package-id casing present' }
 
 $kubeModule = Get-Content -Raw (Join-Path $RootDir 'scripts/modules/kubernetes/install.ps1')
 if ($kubeModule -notmatch 'get.helm.sh' -or $kubeModule -notmatch 'Install-VerifiedZipTool') { throw 'Pinned Helm 3 checksum installation missing' }
 
 $terminalModule = Get-Content -Raw (Join-Path $RootDir 'scripts/modules/terminal/install.ps1')
 if ($terminalModule -notmatch 'WindowsPowerShell/profile.ps1' -or $terminalModule -notmatch 'PowerShell/profile.ps1') { throw 'Both Windows PowerShell and PowerShell 7 profiles must be configured' }
+if ($terminalModule -notmatch '\[regex\]::IsMatch' -or $terminalModule -notmatch 'RegexOptions\]::Singleline') { throw 'PowerShell managed profile block must use multiline-safe idempotence matching' }
 
 Write-Host 'Windows static tests passed'
