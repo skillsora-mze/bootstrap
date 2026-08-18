@@ -16,7 +16,7 @@ Workstation Bootstrap prepares standardized training workstations for AWS, Micro
 |---|---|---|---|
 | macOS 14+ | arm64 | Homebrew | OrbStack |
 | Debian 12 | amd64 / arm64 | APT | Docker Engine CE |
-| Windows 11 24H2+ | amd64/x64 | WinGet | Rancher Desktop + Moby |
+| Windows 11 23H2+ | amd64/x64 | WinGet | Rancher Desktop + Moby |
 
 Windows requires WSL2 for Rancher Desktop. The bootstrap and cloud/Kubernetes CLIs run natively in PowerShell.
 
@@ -38,5 +38,5 @@ Windows requires WSL2 for Rancher Desktop. The bootstrap and cloud/Kubernetes CL
 - Kubernetes cluster provisioning.
 - Credential provisioning.
 - Red Hat-family distributions or Intel Macs.
-- Windows ARM64 in v1.4.0.
+- Windows ARM64 in v1.4.1.
 - Native Windows Ansible control-node support.

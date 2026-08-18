@@ -1,13 +1,13 @@
 # Current State
 
-Current release candidate: **v1.4.0**.
+Current release candidate: **v1.4.1**.
 
 ## Implemented
 
 - Native entry points for macOS/Debian (`bootstrap.sh`) and Windows (`bootstrap.ps1`).
 - macOS 14+ Apple Silicon with OrbStack.
 - Debian 12 amd64/arm64 with Docker Engine.
-- Windows 11 24H2+ x64 with WinGet and Rancher Desktop/Moby; WSL2 preflight occurs before package changes.
+- Windows 11 23H2+ x64 with WinGet and Rancher Desktop/Moby; WSL2 preflight occurs before package changes.
 - Platform-neutral module layout with Bash and PowerShell implementations.
 - Signed APT repositories for Docker, Microsoft Azure CLI, HashiCorp and Kubernetes.
 - No direct `curl | bash` pipelines in project code.
@@ -23,7 +23,7 @@ AWS, Azure, HashiCorp CLIs, Kubernetes tools and container workflows are native 
 
 ## Validation status
 
-Static validation is automated. **v1.4.0 is not production-validated until real-host smoke tests and second-run idempotence tests pass on macOS Apple Silicon, Debian 12 and Windows 11 x64.**
+Static validation is automated. **v1.4.1 is not production-validated until real-host smoke tests and second-run idempotence tests pass on macOS Apple Silicon, Debian 12 and Windows 11 x64.**
 
 ## Known residual risks
 

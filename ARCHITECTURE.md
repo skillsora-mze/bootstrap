@@ -59,7 +59,7 @@ install.sh modules                    install.ps1 modules
 
 ### Windows
 
-- Windows 11 24H2+, build 26100+
+- Windows 11 23H2+, build 22631+
 - x64/amd64
 - native PowerShell + WinGet
 - WSL2 prerequisite for Rancher Desktop

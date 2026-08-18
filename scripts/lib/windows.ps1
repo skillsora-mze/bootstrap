@@ -14,8 +14,8 @@ function Assert-SupportedWindowsPlatform {
         throw "Supported Windows architecture: x64/amd64 only (detected: $env:PROCESSOR_ARCHITECTURE)."
     }
     $build = [Environment]::OSVersion.Version.Build
-    if ($build -lt 26100) {
-        throw "Windows 11 24H2 or newer is required (build >= 26100; detected: $build)."
+    if ($build -lt 22631) {
+        throw "Windows 11 23H2 or newer is required (build >= 22631; detected: $build)."
     }
 }
 
