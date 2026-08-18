@@ -21,11 +21,10 @@ if (-not $rdctlPath) {
 }
 if (-not $rdctlPath) { throw 'Rancher Desktop installed but rdctl.exe was not found.' }
 
-# Start rdctl asynchronously so a first-run initialization cannot block bootstrap.ps1.
+# Start Rancher Desktop headlessly with settings supported on Windows.
 $startArgs = @(
     'start',
     '--application.start-in-background=true',
-    '--application.path-management-strategy=manual',
     '--application.updater.enabled=false',
     '--container-engine.name=moby',
     '--kubernetes.enabled=false'
@@ -54,9 +53,9 @@ if (-not $settings) {
 }
 
 # Enforce the training baseline even if Rancher Desktop was previously configured.
-Invoke-NativeCommand -FilePath $rdctlPath -ArgumentList @('set','--application.path-management-strategy=manual','--application.updater.enabled=false','--container-engine.name=moby','--kubernetes-enabled=false') -Quiet | Out-Null
+Invoke-NativeCommand -FilePath $rdctlPath -ArgumentList @('set','--application.updater.enabled=false','--container-engine.name=moby','--kubernetes-enabled=false') -Quiet | Out-Null
 
-# Rancher Desktop keeps its CLI utilities in ~/.rd/bin when PATH management is manual.
+# Rancher Desktop exposes CLI utilities in ~/.rd/bin on Windows installations.
 $rdBin = Join-Path $HOME '.rd\bin'
 if (Test-Path -LiteralPath $rdBin -PathType Container) {
     Add-UserPathEntry -Path $rdBin
