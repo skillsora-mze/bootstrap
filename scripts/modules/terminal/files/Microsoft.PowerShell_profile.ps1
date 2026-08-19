@@ -1,8 +1,10 @@
 # Workstation Bootstrap training aliases
 $managedBin = Join-Path $HOME '.workstation-bootstrap\bin'
-if (Test-Path -LiteralPath $managedBin -PathType Container) {
-    $pathEntries = @($env:Path -split ';' | Where-Object { $_ -and $_ -ne $managedBin })
-    $env:Path = (@($managedBin) + $pathEntries) -join ';'
+$rdBin = Join-Path $HOME '.rd\bin'
+$priorityPaths = @($managedBin, $rdBin) | Where-Object { Test-Path -LiteralPath $_ -PathType Container }
+$pathEntries = @($env:Path -split ';' | Where-Object { $_ -and $priorityPaths -notcontains $_ })
+if ($priorityPaths.Count -gt 0) {
+    $env:Path = (@($priorityPaths) + $pathEntries) -join ';'
 }
 
 Set-Alias k kubectl
