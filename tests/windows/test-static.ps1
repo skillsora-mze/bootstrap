@@ -24,6 +24,7 @@ if ($bootstrap -notmatch 'Select-ModulesInteractive' -or $bootstrap -notmatch 'N
 $windowsLib = Get-Content -Raw (Join-Path $RootDir 'scripts/lib/windows.ps1')
 if ($windowsLib -notmatch 'Invoke-NativeCommand') { throw 'Native command wrapper missing' }
 if ($windowsLib -notmatch 'build -lt 22631') { throw 'Windows 11 23H2 baseline missing' }
+if ($windowsLib -notmatch 'Publish-WingetPortableCommand' -or $windowsLib -notmatch 'Get-ManagedBinDir') { throw 'Deterministic managed WinGet command resolution missing' }
 
 $containerModule = Get-Content -Raw (Join-Path $RootDir 'scripts/modules/containers/install.ps1')
 if ($containerModule -notmatch 'SUSE.RancherDesktop' -or $containerModule -notmatch 'container-engine.name=moby') { throw 'Rancher Desktop Moby baseline missing' }
@@ -44,9 +45,15 @@ if ($hashicorpModule -cmatch "HashiCorp\.Vagrant") { throw 'Incorrect WinGet Vag
 $kubeModule = Get-Content -Raw (Join-Path $RootDir 'scripts/modules/kubernetes/install.ps1')
 if ($kubeModule -notmatch 'get.helm.sh' -or $kubeModule -notmatch 'Install-VerifiedZipTool') { throw 'Pinned Helm 3 checksum installation missing' }
 if ($kubeModule -notmatch 'managedHelm' -or $kubeModule -notmatch 'Replacing stale managed Helm binary') { throw 'Managed Helm version drift recovery missing' }
+foreach ($id in @('Kubernetes.kubectl','Kubernetes.kind','Derailed.k9s','ahmetb.kubectx')) {
+    if ($kubeModule -notmatch [regex]::Escape("Publish-WingetPortableCommand -Id '$id'")) { throw "Managed portable command publication missing for $id" }
+}
 
 $terminalModule = Get-Content -Raw (Join-Path $RootDir 'scripts/modules/terminal/install.ps1')
 if ($terminalModule -notmatch 'WindowsPowerShell/profile.ps1' -or $terminalModule -notmatch 'PowerShell/profile.ps1') { throw 'Both Windows PowerShell and PowerShell 7 profiles must be configured' }
 if ($terminalModule -notmatch '\[regex\]::IsMatch' -or $terminalModule -notmatch 'RegexOptions\]::Singleline') { throw 'PowerShell managed profile block must use multiline-safe idempotence matching' }
+
+$managedProfile = Get-Content -Raw (Join-Path $RootDir 'scripts/modules/terminal/files/Microsoft.PowerShell_profile.ps1')
+if ($managedProfile -notmatch '\.workstation-bootstrap\\bin' -or $managedProfile -notmatch '\$env:Path') { throw 'Managed Windows tool path must be prioritized in PowerShell profiles' }
 
 Write-Host 'Windows static tests passed'
