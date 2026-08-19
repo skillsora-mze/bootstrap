@@ -6,12 +6,13 @@ source "${ROOT_DIR}/scripts/lib/log.sh"
 source "${ROOT_DIR}/scripts/lib/config.sh"
 
 failed=0
+containers_enabled=0
 required=()
 
 while IFS= read -r module; do
     case "${module}" in
         system_packages) required+=(git gh python uv go jq yq rg starship) ;;
-        containers) required+=(docker) ;;
+        containers) required+=(docker); containers_enabled=1 ;;
         aws) required+=(aws sam) ;;
         azure) required+=(az azd) ;;
         hashicorp) required+=(terraform packer ansible vagrant) ;;
@@ -30,7 +31,7 @@ for cmd in "${required[@]}"; do
     fi
 done
 
-if command -v docker >/dev/null 2>&1; then
+if [[ "${containers_enabled}" -eq 1 ]] && command -v docker >/dev/null 2>&1; then
     docker info >/dev/null 2>&1 || { log_error "Container engine unavailable"; failed=1; }
 fi
 
