@@ -41,17 +41,25 @@ install_helm_linux() {
 }
 
 install_kind_linux() {
-    local tmp_dir binary
+    local tmp_dir binary checksum_file checksum asset
     tmp_dir="$(with_temp_dir)"
+    asset="kind-linux-${ARCH}"
     binary="${tmp_dir}/kind"
-    download_file "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-${ARCH}" "${binary}"
+    checksum_file="${tmp_dir}/${asset}.sha256sum"
+
+    download_file "https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VERSION}/${asset}" "${binary}"
+    download_file "https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VERSION}/${asset}.sha256sum" "${checksum_file}"
+    checksum="$(awk '{print $1}' "${checksum_file}")"
+    [[ "${checksum}" =~ ^[0-9a-fA-F]{64}$ ]] || { log_error "Invalid kind checksum metadata"; exit 1; }
+    sha256_verify "${binary}" "${checksum}"
+
     chmod 0755 "${binary}"
     sudo install -m 0755 "${binary}" /usr/local/bin/kind
     rm -rf "${tmp_dir}"
 }
 
 install_k9s_linux() {
-    local tmp_dir archive platform
+    local tmp_dir archive platform checksum_file checksum
     tmp_dir="$(with_temp_dir)"
     case "${ARCH}" in
         amd64) platform="amd64" ;;
@@ -59,7 +67,14 @@ install_k9s_linux() {
         *) log_error "Unsupported architecture for k9s: ${ARCH}"; exit 1 ;;
     esac
     archive="k9s_Linux_${platform}.tar.gz"
+    checksum_file="${tmp_dir}/checksums.sha256"
+
     download_file "https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/${archive}" "${tmp_dir}/${archive}"
+    download_file "https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/checksums.sha256" "${checksum_file}"
+    checksum="$(awk -v asset="${archive}" '$2 == asset || $2 == "*" asset { print $1; exit }' "${checksum_file}")"
+    [[ "${checksum}" =~ ^[0-9a-fA-F]{64}$ ]] || { log_error "Checksum for ${archive} not found in k9s release metadata"; exit 1; }
+    sha256_verify "${tmp_dir}/${archive}" "${checksum}"
+
     tar -xzf "${tmp_dir}/${archive}" -C "${tmp_dir}" k9s
     sudo install -m 0755 "${tmp_dir}/k9s" /usr/local/bin/k9s
     rm -rf "${tmp_dir}"
