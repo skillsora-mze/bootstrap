@@ -6,6 +6,10 @@ function Write-Success([string]$Message) { Write-Host "[ OK ] $Message" }
 function Write-Warn([string]$Message) { Write-Warning $Message }
 function Write-Section([string]$Message) { Write-Host "`n=== $Message ===" }
 
+function Get-ManagedBinDir {
+    return (Join-Path $HOME '.workstation-bootstrap/bin')
+}
+
 function Assert-SupportedWindowsPlatform {
     if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
         throw 'This entry point supports Windows only.'
@@ -91,7 +95,13 @@ function Get-VersionConfig {
 function Refresh-ProcessPath {
     $machine = [Environment]::GetEnvironmentVariable('Path', 'Machine')
     $user = [Environment]::GetEnvironmentVariable('Path', 'User')
-    $env:Path = @($machine, $user) -join ';'
+    $managedBin = Get-ManagedBinDir
+    if (Test-Path -LiteralPath $managedBin -PathType Container) {
+        $env:Path = @($managedBin, $machine, $user) -join ';'
+    }
+    else {
+        $env:Path = @($machine, $user) -join ';'
+    }
 }
 
 function Invoke-NativeCommand {
@@ -137,8 +147,6 @@ function Get-WingetInstalledVersion {
             return $Matches[1]
         }
     }
-    # Package was reported by WinGet but its localized table could not be parsed.
-    # Preserve the installed state; pinned callers will stop rather than guess a version.
     return ''
 }
 
@@ -190,6 +198,37 @@ function Install-WingetPackage {
     Refresh-ProcessPath
 }
 
+function Publish-WingetPortableCommand {
+    param(
+        [Parameter(Mandatory)][string]$Id,
+        [Parameter(Mandatory)][string]$Command
+    )
+
+    $packageRoot = Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Packages'
+    if (-not (Test-Path -LiteralPath $packageRoot -PathType Container)) {
+        throw "WinGet package directory not found: $packageRoot"
+    }
+
+    $packageDirs = @(Get-ChildItem -LiteralPath $packageRoot -Directory -ErrorAction Stop | Where-Object { $_.Name -like "$Id`_*" })
+    $candidates = @()
+    foreach ($dir in $packageDirs) {
+        $candidates += @(Get-ChildItem -LiteralPath $dir.FullName -Recurse -File -Filter "$Command.exe" -ErrorAction SilentlyContinue)
+    }
+    $source = $candidates | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+    if (-not $source) {
+        throw "WinGet portable command not found for $Id: $Command.exe"
+    }
+
+    $managedBin = Get-ManagedBinDir
+    New-Item -ItemType Directory -Force -Path $managedBin | Out-Null
+    $destination = Join-Path $managedBin "$Command.exe"
+    Copy-Item -LiteralPath $source.FullName -Destination $destination -Force
+    Add-UserPathEntry -Path $managedBin -Prepend
+    Refresh-ProcessPath
+    Write-Info "Managed $Command from $Id -> $destination"
+    return $destination
+}
+
 function Assert-Command {
     param([Parameter(Mandatory)][string]$Name)
     Refresh-ProcessPath
@@ -233,7 +272,7 @@ function Install-VerifiedZipTool {
         [Parameter(Mandatory)][string]$ArchiveRelativePath,
         [Parameter(Mandatory)][string]$DestinationFile
     )
-    $binDir = Join-Path $HOME '.workstation-bootstrap/bin'
+    $binDir = Get-ManagedBinDir
     New-Item -ItemType Directory -Force -Path $binDir | Out-Null
     $destination = Join-Path $binDir $DestinationFile
     if (Test-Path -LiteralPath $destination) {
