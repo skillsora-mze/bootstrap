@@ -32,7 +32,7 @@ if ($containerModule -notmatch 'application.start-in-background=true') { throw '
 if ($containerModule -match 'application.path-management-strategy') { throw 'Unsupported Rancher Desktop Windows PATH-management flag present' }
 if ($containerModule -notmatch "context','use','default") { throw 'Docker default-context recovery missing' }
 if ($containerModule -notmatch 'Invoke-ProbeWithTimeout' -or $containerModule -notmatch 'WaitForExit') { throw 'Bounded native readiness probe missing from Windows container module' }
-if ($containerModule -notmatch "Invoke-ProbeWithTimeout -FilePath \$RdctlPath -ArgumentList @\('list-settings'\)") { throw 'Rancher Desktop readiness must use a bounded rdctl probe' }
+if ($containerModule -notmatch 'Invoke-ProbeWithTimeout -FilePath \$RdctlPath -ArgumentList @\(''list-settings''\)') { throw 'Rancher Desktop readiness must use a bounded rdctl probe' }
 if ($containerModule -notmatch "Invoke-ProbeWithTimeout -FilePath 'docker' -ArgumentList @\('info'\)") { throw 'Docker readiness must use a bounded probe' }
 if ($containerModule -notmatch 'Rancher Desktop already running') { throw 'Rancher Desktop idempotence readiness check missing' }
 
