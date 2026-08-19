@@ -31,6 +31,10 @@ if ($containerModule -notmatch 'SUSE.RancherDesktop' -or $containerModule -notma
 if ($containerModule -notmatch 'application.start-in-background=true') { throw 'Headless Rancher Desktop first-run configuration missing' }
 if ($containerModule -match 'application.path-management-strategy') { throw 'Unsupported Rancher Desktop Windows PATH-management flag present' }
 if ($containerModule -notmatch "context','use','default") { throw 'Docker default-context recovery missing' }
+if ($containerModule -notmatch 'Invoke-ProbeWithTimeout' -or $containerModule -notmatch 'WaitForExit') { throw 'Bounded native readiness probe missing from Windows container module' }
+if ($containerModule -notmatch "Invoke-ProbeWithTimeout -FilePath \$RdctlPath -ArgumentList @\('list-settings'\)") { throw 'Rancher Desktop readiness must use a bounded rdctl probe' }
+if ($containerModule -notmatch "Invoke-ProbeWithTimeout -FilePath 'docker' -ArgumentList @\('info'\)") { throw 'Docker readiness must use a bounded probe' }
+if ($containerModule -notmatch 'Rancher Desktop already running') { throw 'Rancher Desktop idempotence readiness check missing' }
 
 $awsModule = Get-Content -Raw (Join-Path $RootDir 'scripts/modules/aws/install.ps1')
 if ($awsModule -match 'sam\.exe' -or $awsModule -notmatch "Assert-Command -Name 'sam'") { throw 'AWS SAM command resolution is not portable' }
