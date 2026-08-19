@@ -216,7 +216,7 @@ function Publish-WingetPortableCommand {
     }
     $source = $candidates | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
     if (-not $source) {
-        throw "WinGet portable command not found for $Id: $Command.exe"
+        throw "WinGet portable command not found for ${Id}: $Command.exe"
     }
 
     $managedBin = Get-ManagedBinDir
