@@ -56,10 +56,20 @@ install_azd_debian() {
     rm -rf "${tmp_dir}"
 }
 
-if [[ "${OS}" == "linux" ]]; then
-    command -v az >/dev/null 2>&1 || install_azure_cli_debian
-    command -v azd >/dev/null 2>&1 || install_azd_debian
-fi
+case "${OS}" in
+    linux)
+        command -v az >/dev/null 2>&1 || install_azure_cli_debian
+        command -v azd >/dev/null 2>&1 || install_azd_debian
+        ;;
+    macos)
+        command -v brew >/dev/null 2>&1 || {
+            log_error "Homebrew is required to install Azure tooling. Enable the system_packages module first on a clean Mac."
+            exit 1
+        }
+        command -v az >/dev/null 2>&1 || brew install azure-cli
+        command -v azd >/dev/null 2>&1 || brew install azd
+        ;;
+esac
 
 command -v az >/dev/null 2>&1 || { log_error "Azure CLI not found"; exit 1; }
 command -v azd >/dev/null 2>&1 || { log_error "Azure Developer CLI not found"; exit 1; }
@@ -67,5 +77,7 @@ command -v azd >/dev/null 2>&1 || { log_error "Azure Developer CLI not found"; e
 az version | head -n 8
 azd_output="$(azd version)"
 printf '%s\n' "${azd_output}"
-printf '%s\n' "${azd_output}" | grep -q "${AZD_VERSION}" || { log_error "azd version mismatch: expected ${AZD_VERSION}"; exit 1; }
+if [[ "${OS}" == "linux" ]]; then
+    printf '%s\n' "${azd_output}" | grep -q "${AZD_VERSION}" || { log_error "azd version mismatch: expected ${AZD_VERSION}"; exit 1; }
+fi
 log_success "Azure tooling validated"

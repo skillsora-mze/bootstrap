@@ -65,10 +65,19 @@ install_k9s_linux() {
     rm -rf "${tmp_dir}"
 }
 
+configure_kubernetes_macos() {
+    command -v brew >/dev/null 2>&1 || {
+        log_error "Homebrew is required to install Kubernetes tooling. Enable the system_packages module first on a clean Mac."
+        exit 1
+    }
 
-configure_helm_macos() {
+    command -v kubectl >/dev/null 2>&1 || brew install kubectl
+    command -v kind >/dev/null 2>&1 || brew install kind
+    command -v k9s >/dev/null 2>&1 || brew install k9s
+    command -v kubectx >/dev/null 2>&1 || brew install kubectx
+
     if brew list --versions helm >/dev/null 2>&1; then
-        log_error "Homebrew Helm 4 is installed but this project standardizes on Helm 3 (${HELM_VERSION})."
+        log_error "Homebrew Helm 4 is installed but this project standardizes on Helm 3."
         log_error "Remove it explicitly with: brew uninstall helm ; then rerun the bootstrap."
         exit 1
     fi
@@ -79,17 +88,18 @@ configure_helm_macos() {
     helm version --short | grep -q '^v3\.' || { log_error "Helm 3 is required"; exit 1; }
 }
 
-if [[ "${OS}" == "macos" ]]; then
-    configure_helm_macos
-fi
-
-if [[ "${OS}" == "linux" ]]; then
-    command -v kubectl >/dev/null 2>&1 || install_kubectl_debian
-    command -v helm >/dev/null 2>&1 || install_helm_linux
-    command -v kind >/dev/null 2>&1 || install_kind_linux
-    command -v k9s >/dev/null 2>&1 || install_k9s_linux
-    command -v kubectx >/dev/null 2>&1 || sudo DEBIAN_FRONTEND=noninteractive apt-get install -y kubectx
-fi
+case "${OS}" in
+    macos)
+        configure_kubernetes_macos
+        ;;
+    linux)
+        command -v kubectl >/dev/null 2>&1 || install_kubectl_debian
+        command -v helm >/dev/null 2>&1 || install_helm_linux
+        command -v kind >/dev/null 2>&1 || install_kind_linux
+        command -v k9s >/dev/null 2>&1 || install_k9s_linux
+        command -v kubectx >/dev/null 2>&1 || sudo DEBIAN_FRONTEND=noninteractive apt-get install -y kubectx
+        ;;
+esac
 
 for cmd in kubectl helm kind k9s kubectx; do
     command -v "${cmd}" >/dev/null 2>&1 || { log_error "${cmd} not found"; exit 1; }
@@ -97,19 +107,24 @@ done
 
 kubectl_output="$(kubectl version --client --output=json | tr -d '[:space:]')"
 printf '%s\n' "${kubectl_output}"
-printf '%s\n' "${kubectl_output}" | grep -q "\"gitVersion\":\"v${KUBERNETES_PATCH}\"" || { log_error "kubectl version mismatch: expected v${KUBERNETES_PATCH}"; exit 1; }
 
 helm_output="$(helm version --short)"
 printf '%s\n' "${helm_output}"
-printf '%s\n' "${helm_output}" | grep -q "^${HELM_VERSION}" || { log_error "Helm version mismatch: expected ${HELM_VERSION}"; exit 1; }
 
 kind_output="$(kind version)"
 printf '%s\n' "${kind_output}"
-printf '%s\n' "${kind_output}" | grep -q "${KIND_VERSION#v}" || { log_error "kind version mismatch: expected ${KIND_VERSION}"; exit 1; }
 
 k9s_output="$(k9s version)"
 printf '%s\n' "${k9s_output}"
-printf '%s\n' "${k9s_output}" | grep -q "${K9S_VERSION#v}" || { log_error "k9s version mismatch: expected ${K9S_VERSION}"; exit 1; }
+
+if [[ "${OS}" == "linux" ]]; then
+    printf '%s\n' "${kubectl_output}" | grep -q "\"gitVersion\":\"${KUBERNETES_MINOR}\." || { log_error "kubectl minor-version mismatch: expected ${KUBERNETES_MINOR}.x"; exit 1; }
+    printf '%s\n' "${helm_output}" | grep -q "^${HELM_VERSION}" || { log_error "Helm version mismatch: expected ${HELM_VERSION}"; exit 1; }
+    printf '%s\n' "${kind_output}" | grep -q "${KIND_VERSION#v}" || { log_error "kind version mismatch: expected ${KIND_VERSION}"; exit 1; }
+    printf '%s\n' "${k9s_output}" | grep -q "${K9S_VERSION#v}" || { log_error "k9s version mismatch: expected ${K9S_VERSION}"; exit 1; }
+else
+    printf '%s\n' "${helm_output}" | grep -q '^v3\.' || { log_error "Helm 3 is required on macOS"; exit 1; }
+fi
 
 kubectx --help >/dev/null
 log_success "Kubernetes tooling validated"

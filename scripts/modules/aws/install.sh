@@ -69,6 +69,11 @@ case "${OS}" in
         command -v sam >/dev/null 2>&1 || install_sam_cli_linux
         ;;
     macos)
+        command -v brew >/dev/null 2>&1 || {
+            log_error "Homebrew is required to install AWS CLI. Enable the system_packages module first on a clean Mac."
+            exit 1
+        }
+        command -v aws >/dev/null 2>&1 || brew install awscli
         if brew list --versions aws-sam-cli >/dev/null 2>&1; then
             log_warning "AWS SAM CLI is installed through Homebrew. Clean installs use the AWS first-party package installer."
         fi

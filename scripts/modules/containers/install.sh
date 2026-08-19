@@ -59,10 +59,17 @@ ensure_orbstack_macos() {
         exit 1
     fi
 
-    command -v orb >/dev/null 2>&1 || {
-        log_error "OrbStack CLI not found. The system_packages module should install the OrbStack cask."
-        exit 1
-    }
+    if ! command -v orb >/dev/null 2>&1; then
+        command -v brew >/dev/null 2>&1 || {
+            log_error "Homebrew is required to install OrbStack. Enable the system_packages module first on a clean Mac."
+            exit 1
+        }
+        log_info "Installing OrbStack"
+        brew install --cask orbstack
+        hash -r
+    fi
+
+    command -v orb >/dev/null 2>&1 || { log_error "OrbStack CLI not found after installation"; exit 1; }
 
     if ! orb status >/dev/null 2>&1; then
         log_info "Starting OrbStack"
