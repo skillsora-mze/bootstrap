@@ -23,13 +23,25 @@ install_hashicorp_repository_debian() {
     rm -rf "${tmp_dir}"
 }
 
-if [[ "${OS}" == "linux" ]]; then
-    if ! command -v terraform >/dev/null 2>&1 || ! command -v packer >/dev/null 2>&1 || ! command -v vagrant >/dev/null 2>&1; then
-        install_hashicorp_repository_debian
-        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y terraform packer vagrant
-    fi
-    command -v ansible >/dev/null 2>&1 || sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ansible
-fi
+case "${OS}" in
+    linux)
+        if ! command -v terraform >/dev/null 2>&1 || ! command -v packer >/dev/null 2>&1 || ! command -v vagrant >/dev/null 2>&1; then
+            install_hashicorp_repository_debian
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y terraform packer vagrant
+        fi
+        command -v ansible >/dev/null 2>&1 || sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ansible
+        ;;
+    macos)
+        command -v brew >/dev/null 2>&1 || {
+            log_error "Homebrew is required to install HashiCorp tooling. Enable the system_packages module first on a clean Mac."
+            exit 1
+        }
+        command -v terraform >/dev/null 2>&1 || brew install terraform
+        command -v packer >/dev/null 2>&1 || brew install packer
+        command -v ansible >/dev/null 2>&1 || brew install ansible
+        command -v vagrant >/dev/null 2>&1 || brew install --cask vagrant
+        ;;
+esac
 
 for cmd in terraform packer ansible vagrant; do
     command -v "${cmd}" >/dev/null 2>&1 || { log_error "${cmd} not found"; exit 1; }

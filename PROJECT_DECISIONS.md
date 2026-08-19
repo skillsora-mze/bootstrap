@@ -1,63 +1,46 @@
 # Project Decisions
 
 ## D001 - OrbStack on macOS
-
-**Decision:** Use OrbStack as the only macOS container runtime.
-
-**Reason:** It provides the Docker-compatible engine/CLI required by Compose and kind while avoiding Docker Desktop.
+Use OrbStack as the macOS container runtime. Docker Desktop is not the baseline.
 
 ## D002 - Explicit support matrix
+Support macOS 14+ Apple Silicon, Debian 12 amd64/arm64, and Windows 11 23H2+ x64 only.
 
-**Decision:** Support macOS 14+ Apple Silicon, Debian 12 amd64/arm64, and Windows 11 23H2+ x64.
-
-**Reason:** Every enabled module must have an explicit, testable platform behavior. Detection alone does not imply support.
-
-## D003 - Container module naming
-
-**Decision:** Use the platform-neutral `containers` module.
-
-**Reason:** Runtime implementation is platform-specific: OrbStack, Docker Engine, or Rancher Desktop/Moby.
+## D003 - Platform-neutral containers module
+Use the `containers` module, implemented with OrbStack, Docker Engine or Rancher Desktop/Moby according to platform.
 
 ## D004 - Configuration split
-
-**Decision:** Keep feature toggles in `config/bootstrap.yaml` and validated toolchain versions in `config/versions.env`.
-
-**Reason:** Both Bash and PowerShell can consume the configuration without adding a YAML parser prerequisite.
+Keep module defaults in `config/bootstrap.yaml` and pinned toolchain versions/hashes in `config/versions.env`.
 
 ## D005 - Module isolation
-
-**Decision:** Execute Bash modules in subshells and PowerShell modules as strict scripts.
-
-**Reason:** Module state should not accidentally leak into later modules.
+Run Bash modules in subshells and PowerShell modules as strict scripts.
 
 ## D006 - Supply-chain preference
-
-**Decision:** Prefer signed vendor repositories and package managers. Direct release downloads must be version-pinned and checksum-verified when upstream publishes checksum metadata. Network content must never be piped directly to a shell.
+Prefer signed repositories and first-party package managers/installers. Version-pin and checksum direct release downloads when upstream publishes hashes. Never pipe network content directly to a shell.
 
 ## D007 - Release validation
-
-**Decision:** Static CI is necessary but not sufficient. A release requires a fresh-host smoke test and a second idempotence run on every supported platform.
+Static CI is necessary but not sufficient. Releases require first-run and second-run smoke tests on all supported platforms.
 
 ## D008 - Native Windows entry point
-
-**Decision:** Windows uses `bootstrap.ps1` and WinGet rather than Git Bash or running the bootstrap inside WSL.
-
-**Reason:** Native PowerShell gives predictable Windows path, package and profile behavior while preserving the project structure.
+Use `bootstrap.ps1` and native Windows package tooling rather than Git Bash or running the bootstrap inside WSL.
 
 ## D009 - Rancher Desktop on Windows
+Use Rancher Desktop with Moby and disable embedded Kubernetes. Start/configure it headlessly when possible. `kind` provides local Kubernetes labs.
 
-**Decision:** Use Rancher Desktop with Moby (`dockerd`) and disable its embedded Kubernetes cluster.
-
-**Reason:** The project needs a Docker-compatible API for Compose and kind without making Docker Desktop the baseline. WSL2 is an explicit prerequisite of this runtime.
-
-## D010 - Windows x64 baseline
-
-**Decision:** v1.4.1 supports Windows 11 build 22631+ on x64 only.
-
-**Reason:** Narrow support reduces package/runtime variation for training fleets. Windows ARM64 can be added only after all modules are validated there.
+## D010 - Windows baseline
+Support Windows 11 build 22631+ on x64. Windows ARM64 remains out of scope until every module is validated.
 
 ## D011 - Helm 3 baseline
+Standardize on Helm 3.21.4. macOS uses `helm@3`; Windows uses the pinned release archive with SHA-256 verification.
 
-**Decision:** Standardize on Helm 3.21.4 for current labs.
+## D012 - Interactive selection
+Interactive terminal launches offer module selection by default. Selection applies only to the current run and never rewrites `config/bootstrap.yaml`. CI/unattended runs use explicit non-interactive mode.
 
-**Reason:** Homebrew's unversioned `helm` package now follows Helm 4. macOS therefore uses `helm@3`; Windows installs the pinned Helm 3 release archive with SHA-256 verification.
+## D013 - Native command handling on Windows
+Centralize external command execution in `Invoke-NativeCommand`. Native exit codes determine success; informational stderr output must not become a terminating PowerShell error.
+
+## D014 - Safe version enforcement
+When a WinGet package has a pinned baseline, upgrade older versions automatically but never downgrade newer versions automatically. Report the mismatch for explicit operator action.
+
+## D015 - PowerShell profile compatibility
+Configure both Windows PowerShell 5.1 and PowerShell 7 current-user all-host profiles so a bootstrap started from either shell produces a consistent user environment.

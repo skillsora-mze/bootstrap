@@ -2,16 +2,20 @@
 
 ## Principles
 
-- No credentials, tokens, private keys or cloud secrets are stored in this repository.
-- Use short-lived cloud credentials and least privilege outside this bootstrap.
-- Prefer signed vendor package repositories.
-- Do not pipe downloaded network content directly to a shell.
-- Use temporary directories for downloaded installers and archives.
+- Never store credentials, access tokens, SSH private keys or cloud secrets in this repository.
+- Prefer signed vendor repositories and first-party package managers/installers.
+- Direct release downloads must be version-pinned and SHA-256 verified when upstream publishes hashes.
+- Network content must not be piped directly into a shell.
+- Automatic destructive remediation is avoided: conflicting runtimes/packages and unsupported downgrades stop with an explicit message.
 
-## Supply-chain exceptions
+## Current controls
 
-Some tools do not expose a convenient signed system repository for the supported Linux platform. These exceptions are documented in `CURRENT_STATE.md` and must be reviewed at each release.
+- Docker, Microsoft Azure CLI, HashiCorp and Kubernetes use signed APT repositories on Debian where applicable.
+- AWS SAM and selected standalone tooling use pinned release artifacts with checksum validation.
+- Azure Developer CLI on Debian uses pinned official release artifacts with published SHA-256 values.
+- Windows native commands are evaluated by exit code; stderr text alone does not determine failure.
+- No credential provisioning is performed by the bootstrap.
 
 ## Reporting
 
-Do not include real credentials in issue reports, logs or screenshots.
+Do not include secrets or private infrastructure data in an issue. Report security-sensitive problems privately to the repository owner.

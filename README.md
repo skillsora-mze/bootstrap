@@ -1,75 +1,67 @@
 # Workstation Bootstrap
 
-Workstation Bootstrap prepares reproducible workstations for cloud, DevOps and Kubernetes training.
+Cross-platform workstation bootstrap for AWS, Azure, Infrastructure as Code, Kubernetes and container training labs.
 
 ## Supported platforms
 
-| Platform | Architecture | Container runtime | Entry point |
-|---|---|---|---|
-| macOS 14+ | Apple Silicon (arm64) | OrbStack | `./bootstrap.sh` |
-| Debian 12 | amd64 / arm64 | Docker Engine CE | `./bootstrap.sh` |
-| Windows 11 23H2+ (build 22631+) | x64/amd64 | Rancher Desktop + Moby | `.\\bootstrap.ps1` |
+| Platform | Architecture | Container runtime |
+|---|---|---|
+| macOS 14+ | Apple Silicon | OrbStack |
+| Debian 12 | amd64 / arm64 | Docker Engine CE |
+| Windows 11 23H2+ (build 22631+) | x64 | Rancher Desktop + Moby |
 
-Unsupported platforms fail during preflight before package installation. Windows requires WSL2 for Rancher Desktop, but the bootstrap itself runs natively in PowerShell.
+Windows requires WSL2 for Rancher Desktop. Docker Desktop is not the project baseline.
 
-## Quick start
+## Install
 
-### macOS / Debian
+macOS / Debian:
 
 ```bash
-git clone https://github.com/ibmmo/workstation-bootstrap.git
-cd workstation-bootstrap
+git clone https://github.com/skillsora-mze/bootstrap.git
+cd bootstrap
 ./bootstrap.sh
-./scripts/verify-workstation.sh
 ```
 
-### Windows
-
-From PowerShell:
+Windows PowerShell:
 
 ```powershell
-git clone https://github.com/ibmmo/workstation-bootstrap.git
-Set-Location workstation-bootstrap
-.\\bootstrap.ps1
-.\\scripts\\verify-workstation.ps1
+git clone https://github.com/skillsora-mze/bootstrap.git
+Set-Location bootstrap
+.\bootstrap.ps1
 ```
 
-If the `containers` module is enabled, WSL2 must already be available. The bootstrap fails before package changes when it is missing.
+Interactive terminal runs display the module list before making package changes. Toggle module numbers and press Enter to continue.
+
+For CI or unattended execution:
+
+```bash
+./bootstrap.sh --non-interactive
+```
+
+```powershell
+.\bootstrap.ps1 -NonInteractive
+```
 
 ## Modules
 
-- `system_packages`
-- `containers`
-- `aws`
-- `azure`
-- `hashicorp`
-- `kubernetes`
-- `terminal`
+`system_packages`, `containers`, `aws`, `azure`, `hashicorp`, `kubernetes`, `terminal`.
 
-Container runtime policy: OrbStack on macOS, Docker Engine on Debian, Rancher Desktop with Moby on Windows. Docker Desktop is not part of the baseline.
+Defaults are stored in `config/bootstrap.yaml`; interactive choices apply only to the current run.
 
-## Kubernetes baseline
+## Verify
 
-The project currently standardizes on Kubernetes 1.36 tooling and Helm 3.21.4. `config/versions.env` contains the version baseline.
-
-## Validation
+macOS / Debian:
 
 ```bash
-./tests/run.sh
-find . -type f -name '*.sh' -print0 | xargs -0 shellcheck
+./scripts/verify-workstation.sh
 ```
 
-Windows static validation is provided by `tests/windows/test-static.ps1` and PSScriptAnalyzer in CI.
+Windows:
 
-A release additionally requires fresh-host smoke tests and a second bootstrap run on each supported platform.
+```powershell
+.\scripts\verify-workstation.ps1
+```
 
-## Source-of-truth documents
+## Release status
 
-- `AI_CONTEXT.md`
-- `PROJECT_OVERVIEW.md`
-- `CURRENT_STATE.md`
-- `PROJECT_DECISIONS.md`
-
-## Version
-
-Current release candidate: **v1.4.1**.
+Version 1.5.0 is a release candidate until the real-host first-run and idempotence checks in `docs/RELEASE_CHECKLIST.md` pass on every supported platform.

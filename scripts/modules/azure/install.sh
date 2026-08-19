@@ -32,24 +32,52 @@ EOF2
 }
 
 install_azd_debian() {
-    # Microsoft currently publishes signed .deb releases through the official
-    # azd installer workflow. Download first, then execute locally (no curl|bash).
-    local tmp_dir installer
+    local tmp_dir asset expected
     tmp_dir="$(with_temp_dir)"
-    installer="${tmp_dir}/install-azd.sh"
-    download_file "https://aka.ms/install-azd.sh" "${installer}"
-    bash "${installer}"
+    case "${ARCH}" in
+        amd64)
+            asset="azd_${AZD_VERSION}_amd64.deb"
+            expected="${AZD_SHA256_AMD64}"
+            download_file "https://github.com/Azure/azure-dev/releases/download/azure-dev-cli_${AZD_VERSION}/${asset}" "${tmp_dir}/${asset}"
+            sha256_verify "${tmp_dir}/${asset}" "${expected}"
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "${tmp_dir}/${asset}"
+            ;;
+        arm64)
+            asset="azd-linux-arm64.tar.gz"
+            expected="${AZD_SHA256_ARM64}"
+            download_file "https://github.com/Azure/azure-dev/releases/download/azure-dev-cli_${AZD_VERSION}/${asset}" "${tmp_dir}/${asset}"
+            sha256_verify "${tmp_dir}/${asset}" "${expected}"
+            tar -xzf "${tmp_dir}/${asset}" -C "${tmp_dir}"
+            [[ -f "${tmp_dir}/azd" ]] || { log_error "azd binary missing from release archive"; exit 1; }
+            sudo install -m 0755 "${tmp_dir}/azd" /usr/local/bin/azd
+            ;;
+        *) log_error "Unsupported architecture for azd: ${ARCH}"; exit 1 ;;
+    esac
     rm -rf "${tmp_dir}"
 }
 
-if [[ "${OS}" == "linux" ]]; then
-    command -v az >/dev/null 2>&1 || install_azure_cli_debian
-    command -v azd >/dev/null 2>&1 || install_azd_debian
-fi
+case "${OS}" in
+    linux)
+        command -v az >/dev/null 2>&1 || install_azure_cli_debian
+        command -v azd >/dev/null 2>&1 || install_azd_debian
+        ;;
+    macos)
+        command -v brew >/dev/null 2>&1 || {
+            log_error "Homebrew is required to install Azure tooling. Enable the system_packages module first on a clean Mac."
+            exit 1
+        }
+        command -v az >/dev/null 2>&1 || brew install azure-cli
+        command -v azd >/dev/null 2>&1 || brew install azd
+        ;;
+esac
 
 command -v az >/dev/null 2>&1 || { log_error "Azure CLI not found"; exit 1; }
 command -v azd >/dev/null 2>&1 || { log_error "Azure Developer CLI not found"; exit 1; }
 
 az version | head -n 8
-azd version
+azd_output="$(azd version)"
+printf '%s\n' "${azd_output}"
+if [[ "${OS}" == "linux" ]]; then
+    printf '%s\n' "${azd_output}" | grep -Fq "${AZD_VERSION}" || { log_error "azd version mismatch: expected ${AZD_VERSION}; automatic downgrade is not performed"; exit 1; }
+fi
 log_success "Azure tooling validated"

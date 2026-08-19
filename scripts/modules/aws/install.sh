@@ -36,10 +36,9 @@ install_aws_cli_linux() {
 }
 
 install_sam_cli_linux() {
-    local tmp_dir archive
+    local tmp_dir archive sam_arch expected_sha
     tmp_dir="$(with_temp_dir)"
     archive="${tmp_dir}/aws-sam-cli.zip"
-    local sam_arch expected_sha
     sam_arch="$(detect_sam_cli_arch)"
     case "${ARCH}" in
         amd64) expected_sha="${SAM_CLI_SHA256_AMD64}" ;;
@@ -54,14 +53,45 @@ install_sam_cli_linux() {
     rm -rf "${tmp_dir}"
 }
 
-if [[ "${OS}" == "linux" ]]; then
-    command -v aws >/dev/null 2>&1 || install_aws_cli_linux
-    command -v sam >/dev/null 2>&1 || install_sam_cli_linux
-fi
+install_sam_cli_macos() {
+    local tmp_dir package
+    tmp_dir="$(with_temp_dir)"
+    package="${tmp_dir}/aws-sam-cli-macos-arm64.pkg"
+    download_file "https://github.com/aws/aws-sam-cli/releases/download/${SAM_CLI_VERSION}/aws-sam-cli-macos-arm64.pkg" "${package}"
+    sha256_verify "${package}" "${SAM_CLI_SHA256_MACOS_ARM64}"
+    sudo installer -pkg "${package}" -target /
+    rm -rf "${tmp_dir}"
+}
+
+sam_strict_baseline=1
+case "${OS}" in
+    linux)
+        command -v aws >/dev/null 2>&1 || install_aws_cli_linux
+        command -v sam >/dev/null 2>&1 || install_sam_cli_linux
+        ;;
+    macos)
+        command -v brew >/dev/null 2>&1 || {
+            log_error "Homebrew is required to install AWS CLI. Enable the system_packages module first on a clean Mac."
+            exit 1
+        }
+        command -v aws >/dev/null 2>&1 || brew install awscli
+        if brew list --versions aws-sam-cli >/dev/null 2>&1; then
+            log_warning "AWS SAM CLI is installed through Homebrew. Clean installs use the AWS first-party package installer; the existing Homebrew stable version is accepted."
+            sam_strict_baseline=0
+        else
+            command -v sam >/dev/null 2>&1 || install_sam_cli_macos
+        fi
+        ;;
+esac
 
 command -v aws >/dev/null 2>&1 || { log_error "AWS CLI not found"; exit 1; }
 command -v sam >/dev/null 2>&1 || { log_error "AWS SAM CLI not found"; exit 1; }
 
 aws --version
-sam --version
+sam_output="$(sam --version)"
+printf '%s\n' "${sam_output}"
+if [[ "${sam_strict_baseline}" -eq 1 ]]; then
+    expected_sam="${SAM_CLI_VERSION#v}"
+    printf '%s\n' "${sam_output}" | grep -Fq "${expected_sam}" || { log_error "AWS SAM CLI version mismatch: expected ${expected_sam}; automatic downgrade is not performed"; exit 1; }
+fi
 log_success "AWS tooling validated"

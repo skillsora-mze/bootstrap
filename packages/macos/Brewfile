@@ -1,7 +1,4 @@
-# Workstation Bootstrap - macOS packages
-
-# Container runtime
-cask "orbstack"
+# Workstation Bootstrap - macOS base packages
 
 # Terminal / shell productivity
 brew "zoxide"
@@ -19,27 +16,6 @@ brew "starship"
 brew "git"
 brew "git-lfs"
 brew "gh"
-
-# AWS
-brew "awscli"
-brew "aws-sam-cli"
-
-# Microsoft Azure
-brew "azure-cli"
-brew "azd"
-
-# Infrastructure as Code / virtualization
-brew "terraform"
-brew "packer"
-brew "ansible"
-cask "vagrant"
-
-# Kubernetes
-brew "kubectl"
-brew "helm@3"
-brew "k9s"
-brew "kind"
-brew "kubectx"
 
 # Development languages / tools
 brew "python"
