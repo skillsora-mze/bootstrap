@@ -29,12 +29,16 @@ if ($windowsLib -notmatch 'Publish-WingetPortableCommand' -or $windowsLib -notma
 $containerModule = Get-Content -Raw (Join-Path $RootDir 'scripts/modules/containers/install.ps1')
 if ($containerModule -notmatch 'SUSE.RancherDesktop' -or $containerModule -notmatch 'container-engine.name=moby') { throw 'Rancher Desktop Moby baseline missing' }
 if ($containerModule -notmatch 'application.start-in-background=true') { throw 'Headless Rancher Desktop first-run configuration missing' }
+if ($containerModule -notmatch '--no-modal-dialogs') { throw 'Rancher Desktop automation must suppress modal dialogs' }
 if ($containerModule -match 'application.path-management-strategy') { throw 'Unsupported Rancher Desktop Windows PATH-management flag present' }
 if ($containerModule -notmatch "context','use','default") { throw 'Docker default-context recovery missing' }
 if ($containerModule -notmatch 'Invoke-ProbeWithTimeout' -or $containerModule -notmatch 'WaitForExit') { throw 'Bounded native readiness probe missing from Windows container module' }
 if ($containerModule -notmatch 'Invoke-ProbeWithTimeout -FilePath \$RdctlPath -ArgumentList @\(''list-settings''\)') { throw 'Rancher Desktop readiness must use a bounded rdctl probe' }
-if ($containerModule -notmatch "Invoke-ProbeWithTimeout -FilePath 'docker' -ArgumentList @\('info'\)") { throw 'Docker readiness must use a bounded probe' }
-if ($containerModule -notmatch 'Rancher Desktop already running') { throw 'Rancher Desktop idempotence readiness check missing' }
+if ($containerModule -notmatch 'Assert-NoCompetingDockerDesktopRuntime') { throw 'Concurrent Docker Desktop runtime preflight missing' }
+if ($containerModule -notmatch 'Get-RancherDockerPath' -or $containerModule -notmatch '-FilePath \$dockerPath') { throw 'Rancher Desktop docker.exe must be resolved explicitly' }
+if ($containerModule -notmatch 'Get-RancherFailureDiagnostics' -or $containerModule -notmatch 'background\.log') { throw 'Rancher Desktop startup failure diagnostics missing' }
+if ($containerModule -match 'Start-Process -FilePath \$rdctlPath') { throw 'rdctl start must not be detached because startup errors would be lost' }
+if ($containerModule -notmatch 'Test-RancherBaseline') { throw 'Rancher Desktop settings must be checked before applying a restart-inducing update' }
 
 $awsModule = Get-Content -Raw (Join-Path $RootDir 'scripts/modules/aws/install.ps1')
 if ($awsModule -match 'sam\.exe' -or $awsModule -notmatch "Assert-Command -Name 'sam'") { throw 'AWS SAM command resolution is not portable' }
@@ -58,6 +62,6 @@ if ($terminalModule -notmatch 'WindowsPowerShell/profile.ps1' -or $terminalModul
 if ($terminalModule -notmatch '\[regex\]::IsMatch' -or $terminalModule -notmatch 'RegexOptions\]::Singleline') { throw 'PowerShell managed profile block must use multiline-safe idempotence matching' }
 
 $managedProfile = Get-Content -Raw (Join-Path $RootDir 'scripts/modules/terminal/files/Microsoft.PowerShell_profile.ps1')
-if ($managedProfile -notmatch '\.workstation-bootstrap\\bin' -or $managedProfile -notmatch '\$env:Path') { throw 'Managed Windows tool path must be prioritized in PowerShell profiles' }
+if ($managedProfile -notmatch '\.workstation-bootstrap\\bin' -or $managedProfile -notmatch '\.rd\\bin' -or $managedProfile -notmatch '\$env:Path') { throw 'Managed Windows and Rancher Desktop tool paths must be prioritized in PowerShell profiles' }
 
 Write-Host 'Windows static tests passed'
