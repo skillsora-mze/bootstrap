@@ -31,11 +31,6 @@ EOF2
     rm -rf "${tmp_dir}"
 }
 
-azd_matches_baseline() {
-    command -v azd >/dev/null 2>&1 || return 1
-    azd version 2>/dev/null | grep -Fq "${AZD_VERSION}"
-}
-
 install_azd_debian() {
     local tmp_dir asset expected
     tmp_dir="$(with_temp_dir)"
@@ -45,7 +40,7 @@ install_azd_debian() {
             expected="${AZD_SHA256_AMD64}"
             download_file "https://github.com/Azure/azure-dev/releases/download/azure-dev-cli_${AZD_VERSION}/${asset}" "${tmp_dir}/${asset}"
             sha256_verify "${tmp_dir}/${asset}" "${expected}"
-            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --allow-downgrades "${tmp_dir}/${asset}"
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "${tmp_dir}/${asset}"
             ;;
         arm64)
             asset="azd-linux-arm64.tar.gz"
@@ -64,10 +59,7 @@ install_azd_debian() {
 case "${OS}" in
     linux)
         command -v az >/dev/null 2>&1 || install_azure_cli_debian
-        if ! azd_matches_baseline; then
-            log_info "Installing required Azure Developer CLI baseline ${AZD_VERSION}"
-            install_azd_debian
-        fi
+        command -v azd >/dev/null 2>&1 || install_azd_debian
         ;;
     macos)
         command -v brew >/dev/null 2>&1 || {
@@ -86,6 +78,6 @@ az version | head -n 8
 azd_output="$(azd version)"
 printf '%s\n' "${azd_output}"
 if [[ "${OS}" == "linux" ]]; then
-    printf '%s\n' "${azd_output}" | grep -Fq "${AZD_VERSION}" || { log_error "azd version mismatch after installation: expected ${AZD_VERSION}"; exit 1; }
+    printf '%s\n' "${azd_output}" | grep -Fq "${AZD_VERSION}" || { log_error "azd version mismatch: expected ${AZD_VERSION}; automatic downgrade is not performed"; exit 1; }
 fi
 log_success "Azure tooling validated"
