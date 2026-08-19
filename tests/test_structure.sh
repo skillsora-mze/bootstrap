@@ -10,8 +10,24 @@ done
 [[ ! -e "${ROOT_DIR}/scripts/modules/docker" ]] || { echo "Legacy docker module still present" >&2; exit 1; }
 [[ -f "${ROOT_DIR}/scripts/lib/selection.sh" ]]
 [[ -f "${ROOT_DIR}/packages/macos/Brewfile" ]]
-grep -q 'cask "orbstack"' "${ROOT_DIR}/packages/macos/Brewfile"
-grep -q 'brew "helm@3"' "${ROOT_DIR}/packages/macos/Brewfile"
+
+# Module-specific macOS packages must not leak into system_packages/Brewfile.
+for token in orbstack awscli azure-cli azd terraform packer ansible vagrant kubectl helm@3 k9s kind kubectx; do
+    if grep -Fq "${token}" "${ROOT_DIR}/packages/macos/Brewfile"; then
+        echo "Module-specific macOS package leaked into base Brewfile: ${token}" >&2
+        exit 1
+    fi
+done
+
+# Each macOS-capable module owns installation of its own package-manager tools.
+grep -q 'brew install --cask orbstack' "${ROOT_DIR}/scripts/modules/containers/install.sh"
+grep -q 'brew install awscli' "${ROOT_DIR}/scripts/modules/aws/install.sh"
+grep -q 'brew install azure-cli' "${ROOT_DIR}/scripts/modules/azure/install.sh"
+grep -q 'brew install azd' "${ROOT_DIR}/scripts/modules/azure/install.sh"
+grep -q 'brew install terraform' "${ROOT_DIR}/scripts/modules/hashicorp/install.sh"
+grep -q 'brew install --cask vagrant' "${ROOT_DIR}/scripts/modules/hashicorp/install.sh"
+grep -q 'brew install kubectl' "${ROOT_DIR}/scripts/modules/kubernetes/install.sh"
+grep -q 'brew install helm@3' "${ROOT_DIR}/scripts/modules/kubernetes/install.sh"
 
 if grep -q 'brew "aws-sam-cli"' "${ROOT_DIR}/packages/macos/Brewfile"; then
     echo "Unsupported Homebrew AWS SAM CLI formula still present" >&2
