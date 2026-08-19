@@ -24,11 +24,6 @@ validate_zip() {
     file "${file}" | grep -qi 'zip archive' || { log_error "Invalid ZIP archive: ${file}"; exit 1; }
 }
 
-sam_matches_baseline() {
-    command -v sam >/dev/null 2>&1 || return 1
-    sam --version 2>/dev/null | grep -Fq "${SAM_CLI_VERSION#v}"
-}
-
 install_aws_cli_linux() {
     local tmp_dir archive
     tmp_dir="$(with_temp_dir)"
@@ -72,10 +67,7 @@ sam_strict_baseline=1
 case "${OS}" in
     linux)
         command -v aws >/dev/null 2>&1 || install_aws_cli_linux
-        if ! sam_matches_baseline; then
-            log_info "Installing required AWS SAM CLI baseline ${SAM_CLI_VERSION}"
-            install_sam_cli_linux
-        fi
+        command -v sam >/dev/null 2>&1 || install_sam_cli_linux
         ;;
     macos)
         command -v brew >/dev/null 2>&1 || {
@@ -86,9 +78,8 @@ case "${OS}" in
         if brew list --versions aws-sam-cli >/dev/null 2>&1; then
             log_warning "AWS SAM CLI is installed through Homebrew. Clean installs use the AWS first-party package installer; the existing Homebrew stable version is accepted."
             sam_strict_baseline=0
-        elif ! sam_matches_baseline; then
-            log_info "Installing required AWS SAM CLI baseline ${SAM_CLI_VERSION}"
-            install_sam_cli_macos
+        else
+            command -v sam >/dev/null 2>&1 || install_sam_cli_macos
         fi
         ;;
 esac
@@ -101,6 +92,6 @@ sam_output="$(sam --version)"
 printf '%s\n' "${sam_output}"
 if [[ "${sam_strict_baseline}" -eq 1 ]]; then
     expected_sam="${SAM_CLI_VERSION#v}"
-    printf '%s\n' "${sam_output}" | grep -Fq "${expected_sam}" || { log_error "AWS SAM CLI version mismatch after installation: expected ${expected_sam}"; exit 1; }
+    printf '%s\n' "${sam_output}" | grep -Fq "${expected_sam}" || { log_error "AWS SAM CLI version mismatch: expected ${expected_sam}; automatic downgrade is not performed"; exit 1; }
 fi
 log_success "AWS tooling validated"
