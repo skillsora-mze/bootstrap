@@ -21,4 +21,4 @@ platform:
   windows:
     minimum_build: 22631
     architecture: amd64
-    runtime: rancher-desktop-moby
+    runtime: wsl2-debian-docker
