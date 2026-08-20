@@ -6,253 +6,243 @@ $ErrorActionPreference = 'Stop'
 
 . (Join-Path $RootDir 'scripts/lib/windows.ps1')
 
-function Invoke-ProbeWithTimeout {
+$DistroName = 'Debian'
+
+function Invoke-Wsl {
     param(
-        [Parameter(Mandatory)][string]$FilePath,
-        [string[]]$ArgumentList = @(),
-        [int]$TimeoutSeconds = 10
+        [Parameter(Mandatory)][string[]]$ArgumentList,
+        [switch]$AllowFailure,
+        [switch]$Quiet
     )
 
-    if ($TimeoutSeconds -lt 1) { throw 'Probe timeout must be at least one second.' }
-
-    $stdout = [IO.Path]::GetTempFileName()
-    $stderr = [IO.Path]::GetTempFileName()
-    try {
-        $process = Start-Process -FilePath $FilePath -ArgumentList $ArgumentList -NoNewWindow -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
-        $completed = $process.WaitForExit($TimeoutSeconds * 1000)
-        if (-not $completed) {
-            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
-            try { $process.WaitForExit() } catch { }
-        }
-
-        $output = @()
-        if (Test-Path -LiteralPath $stdout) { $output += @(Get-Content -LiteralPath $stdout -ErrorAction SilentlyContinue) }
-        if (Test-Path -LiteralPath $stderr) { $output += @(Get-Content -LiteralPath $stderr -ErrorAction SilentlyContinue) }
-
-        return [pscustomobject]@{
-            ExitCode = if ($completed) { $process.ExitCode } else { 124 }
-            Output = @($output | ForEach-Object { $_.ToString() })
-            TimedOut = (-not $completed)
-        }
-    }
-    finally {
-        Remove-Item -LiteralPath $stdout, $stderr -Force -ErrorAction SilentlyContinue
-    }
+    $args = @('-d', $DistroName) + $ArgumentList
+    return Invoke-NativeCommand `
+        -FilePath 'wsl.exe' `
+        -ArgumentList $args `
+        -AllowFailure:$AllowFailure `
+        -Quiet:$Quiet
 }
 
-function Get-RancherSettings {
-    param([Parameter(Mandatory)][string]$RdctlPath)
+function Test-WslDistributionInstalled {
+    $result = Invoke-NativeCommand `
+        -FilePath 'wsl.exe' `
+        -ArgumentList @('--list', '--quiet') `
+        -AllowFailure `
+        -Quiet
 
-    $result = Invoke-ProbeWithTimeout -FilePath $RdctlPath -ArgumentList @('list-settings') -TimeoutSeconds 10
-    if ($result.TimedOut -or $result.ExitCode -ne 0 -or $result.Output.Count -eq 0) { return $null }
-    try {
-        return (($result.Output -join [Environment]::NewLine) | ConvertFrom-Json)
-    }
-    catch {
-        return $null
-    }
-}
-
-function Test-RancherBaseline {
-    param([Parameter(Mandatory)]$Settings)
-
-    try {
-        return (
-            $Settings.containerEngine.name -eq 'moby' -and
-            $Settings.kubernetes.enabled -eq $false -and
-            $Settings.application.updater.enabled -eq $false
-        )
-    }
-    catch {
+    if ($result.ExitCode -ne 0) {
         return $false
     }
-}
 
-function Assert-ProbeSucceeded {
-    param(
-        [Parameter(Mandatory)]$Result,
-        [Parameter(Mandatory)][string]$Description
-    )
-    if ($Result.TimedOut) {
-        $detail = $Result.Output -join [Environment]::NewLine
-        throw "$Description timed out.`n$detail"
-    }
-    if ($Result.ExitCode -ne 0) {
-        $detail = $Result.Output -join [Environment]::NewLine
-        throw "$Description failed with exit code $($Result.ExitCode).`n$detail"
-    }
-}
-
-function Assert-NoCompetingDockerDesktopRuntime {
-    $running = @()
-    foreach ($name in @('Docker Desktop', 'com.docker.backend')) {
-        $running += @(Get-Process -Name $name -ErrorAction SilentlyContinue)
-    }
-
-    $dockerService = Get-Service -Name 'com.docker.service' -ErrorAction SilentlyContinue
-    if ($running.Count -gt 0 -or ($dockerService -and $dockerService.Status -eq 'Running')) {
-        throw 'Docker Desktop is currently running and can conflict with the Rancher Desktop Moby named pipe. Quit Docker Desktop explicitly, then rerun the bootstrap. It will not be stopped automatically.'
-    }
-}
-
-function Get-RancherDockerPath {
-    $candidates = @(
-        (Join-Path $HOME '.rd\bin\docker.exe'),
-        (Join-Path $env:ProgramFiles 'Rancher Desktop\resources\resources\win32\bin\docker.exe')
-    )
-    foreach ($candidate in $candidates) {
-        if (Test-Path -LiteralPath $candidate -PathType Leaf) { return $candidate }
-    }
-    throw 'Rancher Desktop is ready but its docker.exe could not be found in the supported Rancher Desktop locations.'
-}
-
-function Get-RancherFailureDiagnostics {
-    $lines = @()
-
-    $rdProcess = @(Get-Process -Name 'Rancher Desktop' -ErrorAction SilentlyContinue)
-    if ($rdProcess.Count -gt 0) {
-        $lines += "Rancher Desktop process: running ($($rdProcess.Count) process(es))"
-    }
-    else {
-        $lines += 'Rancher Desktop process: not running'
-    }
-
-    $wsl = Invoke-ProbeWithTimeout -FilePath 'wsl.exe' -ArgumentList @('--list','--verbose') -TimeoutSeconds 10
-    if (-not $wsl.TimedOut -and $wsl.Output.Count -gt 0) {
-        $lines += 'WSL distributions:'
-        $lines += $wsl.Output
-    }
-
-    $logDir = Join-Path $env:LOCALAPPDATA 'rancher-desktop\logs'
-    foreach ($logName in @('background.log','wsl-proxy.log','diagnostics.log')) {
-        $logPath = Join-Path $logDir $logName
-        if (Test-Path -LiteralPath $logPath -PathType Leaf) {
-            $lines += "--- $logName (last 20 lines) ---"
-            $lines += @(Get-Content -LiteralPath $logPath -Tail 20 -ErrorAction SilentlyContinue)
+    foreach ($line in $result.Output) {
+        if ($line.Trim() -eq $DistroName) {
+            return $true
         }
     }
 
-    return ($lines -join [Environment]::NewLine)
+    return $false
 }
 
-function Wait-RancherSettings {
-    param(
-        [Parameter(Mandatory)][string]$RdctlPath,
-        [Parameter(Mandatory)][datetime]$Deadline
-    )
+function Test-WslDistributionVersion2 {
+    $result = Invoke-NativeCommand `
+        -FilePath 'wsl.exe' `
+        -ArgumentList @('--list', '--verbose') `
+        -AllowFailure `
+        -Quiet
 
-    $attempt = 0
-    do {
-        $attempt++
-        $settings = Get-RancherSettings -RdctlPath $RdctlPath
-        if ($settings) { return $settings }
-        if (($attempt % 2) -eq 0) { Write-Info 'Waiting for Rancher Desktop readiness...' }
-        Start-Sleep -Seconds 3
-    } while ((Get-Date) -lt $Deadline)
+    if ($result.ExitCode -ne 0) {
+        return $false
+    }
 
-    return $null
+    foreach ($line in $result.Output) {
+        if ($line -match 'Debian' -and $line -match '\s2\s*$') {
+            return $true
+        }
+    }
+
+    return $false
 }
 
-Write-Info 'Configuring Rancher Desktop with Moby (dockerd)'
+function Install-DebianWsl {
+    Write-Info 'Debian WSL distribution is not installed'
+    Write-Info 'Installing Debian for WSL2'
+
+    $result = Invoke-NativeCommand `
+        -FilePath 'wsl.exe' `
+        -ArgumentList @('--install', '-d', $DistroName, '--no-launch') `
+        -AllowFailure
+
+    if ($result.ExitCode -ne 0) {
+        throw 'Debian WSL installation failed.'
+    }
+
+    throw @'
+Debian WSL installation has been requested.
+
+A Windows restart may be required before Debian can start.
+Restart Windows if requested, then rerun bootstrap.ps1.
+
+The containers module will continue with Docker Engine installation on the next run.
+'@
+}
+
+function Install-DockerEngine {
+    Write-Info 'Installing Docker Engine CE inside Debian WSL'
+
+    $script = @'
+set -eu
+
+if dpkg -s docker-ce >/dev/null 2>&1; then
+    echo "[INFO] Docker Engine CE already installed"
+    exit 0
+fi
+
+for package in docker.io docker-compose docker-doc docker-buildx podman-docker containerd runc; do
+    if dpkg -s "$package" >/dev/null 2>&1; then
+        echo "[ERROR] Conflicting container package detected: $package"
+        exit 20
+    fi
+done
+
+apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl
+
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/debian/gpg \
+    -o /etc/apt/keyrings/docker.asc
+chmod a+r /etc/apt/keyrings/docker.asc
+
+. /etc/os-release
+
+cat > /etc/apt/sources.list.d/docker.sources <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/debian
+Suites: ${VERSION_CODENAME}
+Components: stable
+Architectures: $(dpkg --print-architecture)
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+
+apt-get update
+
+DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    docker-ce \
+    docker-ce-cli \
+    containerd.io \
+    docker-buildx-plugin \
+    docker-compose-plugin
+'@
+
+    $result = Invoke-Wsl `
+        -ArgumentList @(
+            '--user', 'root',
+            '--',
+            'bash', '-lc', $script
+        ) `
+        -AllowFailure
+
+    if ($result.ExitCode -eq 20) {
+        throw 'A conflicting container package is installed inside Debian WSL. Remove it explicitly before rerunning the bootstrap.'
+    }
+
+    if ($result.ExitCode -ne 0) {
+        throw "Docker Engine installation failed inside Debian WSL with exit code $($result.ExitCode)."
+    }
+}
+
+function Configure-DockerService {
+    Write-Info 'Enabling systemd in Debian WSL'
+
+    $script = @'
+set -eu
+
+if [ ! -f /etc/wsl.conf ] || ! grep -Eq '^[[:space:]]*systemd[[:space:]]*=[[:space:]]*true' /etc/wsl.conf; then
+    cat > /etc/wsl.conf <<EOF
+[boot]
+systemd=true
+EOF
+fi
+'@
+
+    Invoke-Wsl `
+        -ArgumentList @(
+            '--user', 'root',
+            '--',
+            'bash', '-lc', $script
+        ) | Out-Null
+
+    Write-Info 'Restarting Debian WSL to apply systemd configuration'
+
+    Invoke-NativeCommand `
+        -FilePath 'wsl.exe' `
+        -ArgumentList @('--terminate', $DistroName) `
+        -AllowFailure `
+        -Quiet | Out-Null
+
+    Start-Sleep -Seconds 2
+
+    $startResult = Invoke-Wsl `
+        -ArgumentList @(
+            '--user', 'root',
+            '--',
+            'systemctl', 'enable', '--now', 'docker'
+        ) `
+        -AllowFailure
+
+    if ($startResult.ExitCode -ne 0) {
+        throw 'Docker service could not be started inside Debian WSL.'
+    }
+}
+
+function Test-DockerEngine {
+    Write-Info 'Validating Docker Engine inside Debian WSL'
+
+    $info = Invoke-Wsl `
+        -ArgumentList @(
+            '--user', 'root',
+            '--',
+            'docker', 'info'
+        ) `
+        -AllowFailure `
+        -Quiet
+
+    if ($info.ExitCode -ne 0) {
+        throw 'Docker Engine is installed but is not reachable inside Debian WSL.'
+    }
+
+    Invoke-Wsl `
+        -ArgumentList @(
+            '--user', 'root',
+            '--',
+            'docker', '--version'
+        ) | Out-Null
+
+    Invoke-Wsl `
+        -ArgumentList @(
+            '--user', 'root',
+            '--',
+            'docker', 'compose', 'version'
+        ) | Out-Null
+}
+
+Write-Info 'Configuring Debian WSL2 with Docker Engine CE'
+
 Assert-WslReady
 
-$versions = Get-VersionConfig -Path (Join-Path $RootDir 'config/versions.env')
-Install-WingetPackage -Id 'SUSE.RancherDesktop' -Version $versions.RANCHER_DESKTOP_VERSION
-Refresh-ProcessPath
-
-$rdctlCommand = Get-Command rdctl.exe -ErrorAction SilentlyContinue
-$rdctlPath = if ($rdctlCommand) { $rdctlCommand.Source } else { $null }
-if (-not $rdctlPath) {
-    $candidate = Join-Path $env:ProgramFiles 'Rancher Desktop\resources\resources\win32\bin\rdctl.exe'
-    if (Test-Path -LiteralPath $candidate -PathType Leaf) { $rdctlPath = $candidate }
-}
-if (-not $rdctlPath) { throw 'Rancher Desktop installed but rdctl.exe was not found.' }
-
-$settings = Get-RancherSettings -RdctlPath $rdctlPath
-if ($settings) {
-    Write-Info 'Rancher Desktop already running'
-    if (-not (Test-RancherBaseline -Settings $settings)) {
-        Write-Info 'Applying Rancher Desktop Moby/Kubernetes baseline'
-        $setResult = Invoke-ProbeWithTimeout -FilePath $rdctlPath -ArgumentList @('set','--application.updater.enabled=false','--container-engine.name=moby','--kubernetes-enabled=false') -TimeoutSeconds 90
-        Assert-ProbeSucceeded -Result $setResult -Description 'Rancher Desktop settings update'
-        $settings = Wait-RancherSettings -RdctlPath $rdctlPath -Deadline ((Get-Date).AddMinutes(3))
-    }
-}
-else {
-    Assert-NoCompetingDockerDesktopRuntime
-
-    $startArgs = @(
-        'start',
-        '--no-modal-dialogs',
-        '--application.start-in-background=true',
-        '--application.updater.enabled=false',
-        '--container-engine.name=moby',
-        '--kubernetes.enabled=false'
-    )
-
-    Write-Info 'Starting Rancher Desktop in background'
-    $overallDeadline = (Get-Date).AddMinutes(5)
-    $startResult = Invoke-ProbeWithTimeout -FilePath $rdctlPath -ArgumentList $startArgs -TimeoutSeconds 90
-    if (-not $startResult.TimedOut -and $startResult.ExitCode -ne 0) {
-        $detail = $startResult.Output -join [Environment]::NewLine
-        $diagnostics = Get-RancherFailureDiagnostics
-        throw "Rancher Desktop start failed with exit code $($startResult.ExitCode).`n$detail`n$diagnostics"
-    }
-    if ($startResult.TimedOut) {
-        Write-Info 'rdctl start is still initializing; continuing with bounded readiness checks'
-    }
-
-    $settings = Wait-RancherSettings -RdctlPath $rdctlPath -Deadline $overallDeadline
+if (-not (Test-WslDistributionInstalled)) {
+    Install-DebianWsl
 }
 
-if (-not $settings) {
-    $diagnostics = Get-RancherFailureDiagnostics
-    throw "Rancher Desktop did not become ready within 5 minutes.`n$diagnostics"
+if (-not (Test-WslDistributionVersion2)) {
+    Write-Info 'Setting Debian to WSL2'
+
+    Invoke-NativeCommand `
+        -FilePath 'wsl.exe' `
+        -ArgumentList @('--set-version', $DistroName, '2') | Out-Null
 }
 
-if (-not (Test-RancherBaseline -Settings $settings)) {
-    throw 'Rancher Desktop became reachable but the required Moby/Kubernetes-disabled baseline was not applied.'
-}
+Install-DockerEngine
+Configure-DockerService
+Test-DockerEngine
 
-$rdBin = Join-Path $HOME '.rd\bin'
-if (Test-Path -LiteralPath $rdBin -PathType Container) {
-    Add-UserPathEntry -Path $rdBin -Prepend
-    $currentEntries = @($env:Path -split ';' | Where-Object { $_ -and $_ -ne $rdBin })
-    $env:Path = (@($rdBin) + $currentEntries) -join ';'
-}
-
-$dockerPath = Get-RancherDockerPath
-
-$currentContextResult = Invoke-ProbeWithTimeout -FilePath $dockerPath -ArgumentList @('context','show') -TimeoutSeconds 10
-Assert-ProbeSucceeded -Result $currentContextResult -Description 'Docker context query'
-$currentContext = if ($currentContextResult.Output.Count -gt 0) { $currentContextResult.Output[0].Trim() } else { '' }
-if ($currentContext -ne 'default') {
-    Write-Info "Switching Docker context from '$currentContext' to 'default'"
-    $contextUseResult = Invoke-ProbeWithTimeout -FilePath $dockerPath -ArgumentList @('context','use','default') -TimeoutSeconds 15
-    Assert-ProbeSucceeded -Result $contextUseResult -Description 'Docker context switch'
-}
-
-$deadline = (Get-Date).AddMinutes(5)
-$dockerReady = $false
-$attempt = 0
-do {
-    $attempt++
-    $dockerInfo = Invoke-ProbeWithTimeout -FilePath $dockerPath -ArgumentList @('info') -TimeoutSeconds 10
-    if (-not $dockerInfo.TimedOut -and $dockerInfo.ExitCode -eq 0) {
-        $dockerReady = $true
-        break
-    }
-    if (($attempt % 2) -eq 0) { Write-Info 'Waiting for Rancher Desktop Moby engine...' }
-    Start-Sleep -Seconds 3
-} while ((Get-Date) -lt $deadline)
-
-if (-not $dockerReady) {
-    $diagnostics = Get-RancherFailureDiagnostics
-    throw "Rancher Desktop Moby engine did not become ready within 5 minutes.`n$diagnostics"
-}
-
-$dockerVersion = Invoke-ProbeWithTimeout -FilePath $dockerPath -ArgumentList @('--version') -TimeoutSeconds 15
-Assert-ProbeSucceeded -Result $dockerVersion -Description 'Docker version check'
-$composeVersion = Invoke-ProbeWithTimeout -FilePath $dockerPath -ArgumentList @('compose','version') -TimeoutSeconds 15
-Assert-ProbeSucceeded -Result $composeVersion -Description 'Docker Compose version check'
-Write-Success 'Rancher Desktop / Moby runtime validated'
+Write-Success 'Debian WSL2 / Docker Engine CE runtime validated'
