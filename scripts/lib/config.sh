@@ -11,7 +11,7 @@ load_config() {
     # shellcheck disable=SC1090
     source "${VERSIONS_FILE}"
 
-    local required=(KUBERNETES_MINOR KUBERNETES_PATCH KIND_VERSION K9S_VERSION KUBECTX_VERSION HELM_VERSION SAM_CLI_VERSION SAM_CLI_SHA256_AMD64 SAM_CLI_SHA256_ARM64 SAM_CLI_SHA256_MACOS_ARM64 RANCHER_DESKTOP_VERSION AZD_VERSION AZD_SHA256_AMD64 AZD_SHA256_ARM64)
+    local required=(KUBERNETES_MINOR KUBERNETES_PATCH KIND_VERSION K9S_VERSION KUBECTX_VERSION HELM_VERSION SAM_CLI_VERSION SAM_CLI_SHA256_AMD64 SAM_CLI_SHA256_ARM64 SAM_CLI_SHA256_MACOS_ARM64 AZD_VERSION AZD_SHA256_AMD64 AZD_SHA256_ARM64)
     local var
     for var in "${required[@]}"; do
         [[ -n "${!var:-}" ]] || { log_error "Missing required version: ${var}"; return 1; }
@@ -20,14 +20,14 @@ load_config() {
 
 module_enabled() {
     local module="$1"
-    grep -Eq "^[[:space:]]{2}${module}:[[:space:]]*true[[:space:]]*$" "${CONFIG_FILE}"
+    grep -Eq "^[[:space:]][[:space:]]${module}:[[:space:]]*true[[:space:]]*$" "${CONFIG_FILE}"
 }
 
 get_enabled_modules() {
     awk '
         /^modules:[[:space:]]*$/ { in_modules=1; next }
         in_modules && /^[^[:space:]]/ { exit }
-        in_modules && /^[[:space:]]{2}[A-Za-z0-9_-]+:[[:space:]]*true[[:space:]]*$/ {
+        in_modules && /^[[:space:]][[:space:]][A-Za-z0-9_-]+:[[:space:]]*true[[:space:]]*$/ {
             key=$1; sub(":", "", key); print key
         }
     ' "${CONFIG_FILE}"
@@ -37,7 +37,7 @@ get_bootstrap_version() {
     awk -F': *' '
         /^bootstrap:[[:space:]]*$/ { in_bootstrap=1; next }
         in_bootstrap && /^[^[:space:]]/ { exit }
-        in_bootstrap && /^[[:space:]]{2}version:/ {
+        in_bootstrap && /^[[:space:]][[:space:]]version:/ {
             gsub(/^[[:space:]"]+|[[:space:]"]+$/, "", $2); print $2; exit
         }
     ' "${CONFIG_FILE}"

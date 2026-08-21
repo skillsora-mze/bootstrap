@@ -29,12 +29,24 @@ if ($useInteractive) {
 
 Write-Info "Version: $version"
 Write-Info 'Operating system: windows'
-Write-Info 'Architecture: amd64'
+$windowsArch = switch (Get-WindowsOsArchitecture) {
+    'AMD64' { 'amd64' }
+    'ARM64' { 'arm64' }
+    default { (Get-WindowsOsArchitecture).ToLowerInvariant() }
+}
+Write-Info "Architecture: $windowsArch"
 Write-Info "Windows build: $([Environment]::OSVersion.Version.Build)"
+$containerCapability = Get-WindowsLocalContainerCapability
+Write-Info "Runtime profile: $($containerCapability.Profile)"
 Write-Info "Selected modules: $($enabledModules -join ', ')"
 
 if ($enabledModules -contains 'containers') {
-    Assert-WslReady
+    if ($containerCapability.Supported) {
+        Assert-WslReady
+    }
+    else {
+        Write-Warn $containerCapability.Reason
+    }
 }
 
 foreach ($module in $enabledModules) {

@@ -6,6 +6,13 @@ $ErrorActionPreference = 'Stop'
 
 . (Join-Path $RootDir 'scripts/lib/windows.ps1')
 
+$containerCapability = Get-WindowsLocalContainerCapability
+if (-not $containerCapability.Supported) {
+    Write-Warn $containerCapability.Reason
+    Write-Success 'Containers module skipped for this Windows profile'
+    return
+}
+
 function Invoke-ProbeWithTimeout {
     param(
         [Parameter(Mandatory)][string]$FilePath,
@@ -40,219 +47,127 @@ function Invoke-ProbeWithTimeout {
     }
 }
 
-function Get-RancherSettings {
-    param([Parameter(Mandatory)][string]$RdctlPath)
-
-    $result = Invoke-ProbeWithTimeout -FilePath $RdctlPath -ArgumentList @('list-settings') -TimeoutSeconds 10
-    if ($result.TimedOut -or $result.ExitCode -ne 0 -or $result.Output.Count -eq 0) { return $null }
-    try {
-        return (($result.Output -join [Environment]::NewLine) | ConvertFrom-Json)
-    }
-    catch {
-        return $null
-    }
-}
-
-function Test-RancherBaseline {
-    param([Parameter(Mandatory)]$Settings)
-
-    try {
-        return (
-            $Settings.containerEngine.name -eq 'moby' -and
-            $Settings.kubernetes.enabled -eq $false -and
-            $Settings.application.updater.enabled -eq $false
-        )
-    }
-    catch {
-        return $false
-    }
-}
-
 function Assert-ProbeSucceeded {
     param(
         [Parameter(Mandatory)]$Result,
         [Parameter(Mandatory)][string]$Description
     )
-    if ($Result.TimedOut) {
-        $detail = $Result.Output -join [Environment]::NewLine
-        throw "$Description timed out.`n$detail"
-    }
-    if ($Result.ExitCode -ne 0) {
-        $detail = $Result.Output -join [Environment]::NewLine
-        throw "$Description failed with exit code $($Result.ExitCode).`n$detail"
-    }
+
+    $detail = $Result.Output -join [Environment]::NewLine
+    if ($Result.TimedOut) { throw "$Description timed out.`n$detail" }
+    if ($Result.ExitCode -ne 0) { throw "$Description failed with exit code $($Result.ExitCode).`n$detail" }
 }
 
-function Assert-NoCompetingDockerDesktopRuntime {
-    $running = @()
-    foreach ($name in @('Docker Desktop', 'com.docker.backend')) {
-        $running += @(Get-Process -Name $name -ErrorAction SilentlyContinue)
-    }
+function Get-DockerCliPath {
+    Refresh-ProcessPath
+    $command = Get-Command docker.exe -ErrorAction SilentlyContinue
+    if ($command) { return $command.Source }
 
-    $dockerService = Get-Service -Name 'com.docker.service' -ErrorAction SilentlyContinue
-    if ($running.Count -gt 0 -or ($dockerService -and $dockerService.Status -eq 'Running')) {
-        throw 'Docker Desktop is currently running and can conflict with the Rancher Desktop Moby named pipe. Quit Docker Desktop explicitly, then rerun the bootstrap. It will not be stopped automatically.'
-    }
-}
-
-function Get-RancherDockerPath {
     $candidates = @(
-        (Join-Path $HOME '.rd\bin\docker.exe'),
-        (Join-Path $env:ProgramFiles 'Rancher Desktop\resources\resources\win32\bin\docker.exe')
+        (Join-Path $env:LOCALAPPDATA 'Programs\DockerDesktop\resources\bin\docker.exe'),
+        (Join-Path $env:LOCALAPPDATA 'Programs\Docker\Docker\resources\bin\docker.exe'),
+        (Join-Path $env:ProgramFiles 'Docker\Docker\resources\bin\docker.exe')
     )
     foreach ($candidate in $candidates) {
         if (Test-Path -LiteralPath $candidate -PathType Leaf) { return $candidate }
     }
-    throw 'Rancher Desktop is ready but its docker.exe could not be found in the supported Rancher Desktop locations.'
+
+    throw 'Docker Desktop is installed but docker.exe could not be resolved. Open a new PowerShell terminal and rerun the bootstrap.'
 }
 
-function Get-RancherFailureDiagnostics {
+function Install-DockerDesktop {
+    $packageId = 'Docker.DockerDesktop'
+    if (Test-WingetPackageInstalled -Id $packageId) {
+        Write-Info 'Docker Desktop already installed'
+        return
+    }
+
+    Write-Info 'Installing Docker Desktop with WSL2 backend'
+    $override = 'install --quiet --accept-license --backend=wsl-2 --user'
+    Invoke-NativeCommand -FilePath 'winget.exe' -ArgumentList @(
+        'install','--id',$packageId,'--exact','--source','winget',
+        '--accept-package-agreements','--accept-source-agreements','--disable-interactivity',
+        '--override',$override
+    ) | Out-Null
+    Refresh-ProcessPath
+}
+
+function Get-DockerDesktopDiagnostics {
+    param([Parameter(Mandatory)][string]$DockerPath)
+
     $lines = @()
-
-    $rdProcess = @(Get-Process -Name 'Rancher Desktop' -ErrorAction SilentlyContinue)
-    if ($rdProcess.Count -gt 0) {
-        $lines += "Rancher Desktop process: running ($($rdProcess.Count) process(es))"
-    }
-    else {
-        $lines += 'Rancher Desktop process: not running'
+    $status = Invoke-ProbeWithTimeout -FilePath $DockerPath -ArgumentList @('desktop','status') -TimeoutSeconds 15
+    if ($status.Output.Count -gt 0) {
+        $lines += 'Docker Desktop status:'
+        $lines += $status.Output
     }
 
-    $wsl = Invoke-ProbeWithTimeout -FilePath 'wsl.exe' -ArgumentList @('--list','--verbose') -TimeoutSeconds 10
-    if (-not $wsl.TimedOut -and $wsl.Output.Count -gt 0) {
+    $wsl = Invoke-ProbeWithTimeout -FilePath 'wsl.exe' -ArgumentList @('--list','--verbose') -TimeoutSeconds 15
+    if ($wsl.Output.Count -gt 0) {
         $lines += 'WSL distributions:'
         $lines += $wsl.Output
-    }
-
-    $logDir = Join-Path $env:LOCALAPPDATA 'rancher-desktop\logs'
-    foreach ($logName in @('background.log','wsl-proxy.log','diagnostics.log')) {
-        $logPath = Join-Path $logDir $logName
-        if (Test-Path -LiteralPath $logPath -PathType Leaf) {
-            $lines += "--- $logName (last 20 lines) ---"
-            $lines += @(Get-Content -LiteralPath $logPath -Tail 20 -ErrorAction SilentlyContinue)
-        }
     }
 
     return ($lines -join [Environment]::NewLine)
 }
 
-function Wait-RancherSettings {
-    param(
-        [Parameter(Mandatory)][string]$RdctlPath,
-        [Parameter(Mandatory)][datetime]$Deadline
-    )
-
-    $attempt = 0
-    do {
-        $attempt++
-        $settings = Get-RancherSettings -RdctlPath $RdctlPath
-        if ($settings) { return $settings }
-        if (($attempt % 2) -eq 0) { Write-Info 'Waiting for Rancher Desktop readiness...' }
-        Start-Sleep -Seconds 3
-    } while ((Get-Date) -lt $Deadline)
-
-    return $null
-}
-
-Write-Info 'Configuring Rancher Desktop with Moby (dockerd)'
+Write-Info 'Configuring Docker Desktop with WSL2 backend'
 Assert-WslReady
+Install-DockerDesktop
 
-$versions = Get-VersionConfig -Path (Join-Path $RootDir 'config/versions.env')
-Install-WingetPackage -Id 'SUSE.RancherDesktop' -Version $versions.RANCHER_DESKTOP_VERSION
+$dockerPath = Get-DockerCliPath
+$dockerBin = Split-Path -Parent $dockerPath
+Add-UserPathEntry -Path $dockerBin -Prepend
 Refresh-ProcessPath
 
-$rdctlCommand = Get-Command rdctl.exe -ErrorAction SilentlyContinue
-$rdctlPath = if ($rdctlCommand) { $rdctlCommand.Source } else { $null }
-if (-not $rdctlPath) {
-    $candidate = Join-Path $env:ProgramFiles 'Rancher Desktop\resources\resources\win32\bin\rdctl.exe'
-    if (Test-Path -LiteralPath $candidate -PathType Leaf) { $rdctlPath = $candidate }
-}
-if (-not $rdctlPath) { throw 'Rancher Desktop installed but rdctl.exe was not found.' }
-
-$settings = Get-RancherSettings -RdctlPath $rdctlPath
-if ($settings) {
-    Write-Info 'Rancher Desktop already running'
-    if (-not (Test-RancherBaseline -Settings $settings)) {
-        Write-Info 'Applying Rancher Desktop Moby/Kubernetes baseline'
-        $setResult = Invoke-ProbeWithTimeout -FilePath $rdctlPath -ArgumentList @('set','--application.updater.enabled=false','--container-engine.name=moby','--kubernetes-enabled=false') -TimeoutSeconds 90
-        Assert-ProbeSucceeded -Result $setResult -Description 'Rancher Desktop settings update'
-        $settings = Wait-RancherSettings -RdctlPath $rdctlPath -Deadline ((Get-Date).AddMinutes(3))
+$status = Invoke-ProbeWithTimeout -FilePath $dockerPath -ArgumentList @('desktop','status') -TimeoutSeconds 15
+if ($status.ExitCode -ne 0 -or (($status.Output -join ' ') -notmatch '(?i)running')) {
+    Write-Info 'Starting Docker Desktop'
+    $start = Invoke-ProbeWithTimeout -FilePath $dockerPath -ArgumentList @('desktop','start','--timeout','180') -TimeoutSeconds 210
+    if ($start.ExitCode -ne 0 -or $start.TimedOut) {
+        $diagnostics = Get-DockerDesktopDiagnostics -DockerPath $dockerPath
+        $detail = $start.Output -join [Environment]::NewLine
+        throw "Docker Desktop failed to start.`n$detail`n$diagnostics"
     }
 }
 else {
-    Assert-NoCompetingDockerDesktopRuntime
-
-    $startArgs = @(
-        'start',
-        '--no-modal-dialogs',
-        '--application.start-in-background=true',
-        '--application.updater.enabled=false',
-        '--container-engine.name=moby',
-        '--kubernetes.enabled=false'
-    )
-
-    Write-Info 'Starting Rancher Desktop in background'
-    $overallDeadline = (Get-Date).AddMinutes(5)
-    $startResult = Invoke-ProbeWithTimeout -FilePath $rdctlPath -ArgumentList $startArgs -TimeoutSeconds 90
-    if (-not $startResult.TimedOut -and $startResult.ExitCode -ne 0) {
-        $detail = $startResult.Output -join [Environment]::NewLine
-        $diagnostics = Get-RancherFailureDiagnostics
-        throw "Rancher Desktop start failed with exit code $($startResult.ExitCode).`n$detail`n$diagnostics"
-    }
-    if ($startResult.TimedOut) {
-        Write-Info 'rdctl start is still initializing; continuing with bounded readiness checks'
-    }
-
-    $settings = Wait-RancherSettings -RdctlPath $rdctlPath -Deadline $overallDeadline
+    Write-Info 'Docker Desktop already running'
 }
 
-if (-not $settings) {
-    $diagnostics = Get-RancherFailureDiagnostics
-    throw "Rancher Desktop did not become ready within 5 minutes.`n$diagnostics"
-}
-
-if (-not (Test-RancherBaseline -Settings $settings)) {
-    throw 'Rancher Desktop became reachable but the required Moby/Kubernetes-disabled baseline was not applied.'
-}
-
-$rdBin = Join-Path $HOME '.rd\bin'
-if (Test-Path -LiteralPath $rdBin -PathType Container) {
-    Add-UserPathEntry -Path $rdBin -Prepend
-    $currentEntries = @($env:Path -split ';' | Where-Object { $_ -and $_ -ne $rdBin })
-    $env:Path = (@($rdBin) + $currentEntries) -join ';'
-}
-
-$dockerPath = Get-RancherDockerPath
-
-$currentContextResult = Invoke-ProbeWithTimeout -FilePath $dockerPath -ArgumentList @('context','show') -TimeoutSeconds 10
-Assert-ProbeSucceeded -Result $currentContextResult -Description 'Docker context query'
-$currentContext = if ($currentContextResult.Output.Count -gt 0) { $currentContextResult.Output[0].Trim() } else { '' }
-if ($currentContext -ne 'default') {
-    Write-Info "Switching Docker context from '$currentContext' to 'default'"
-    $contextUseResult = Invoke-ProbeWithTimeout -FilePath $dockerPath -ArgumentList @('context','use','default') -TimeoutSeconds 15
-    Assert-ProbeSucceeded -Result $contextUseResult -Description 'Docker context switch'
-}
-
-$deadline = (Get-Date).AddMinutes(5)
+$deadline = (Get-Date).AddMinutes(3)
 $dockerReady = $false
 $attempt = 0
 do {
     $attempt++
-    $dockerInfo = Invoke-ProbeWithTimeout -FilePath $dockerPath -ArgumentList @('info') -TimeoutSeconds 10
+    $dockerInfo = Invoke-ProbeWithTimeout -FilePath $dockerPath -ArgumentList @('info','--format','{{.OSType}}') -TimeoutSeconds 15
     if (-not $dockerInfo.TimedOut -and $dockerInfo.ExitCode -eq 0) {
+        $osType = ($dockerInfo.Output | Select-Object -First 1).Trim()
+        if ($osType -ne 'linux') {
+            throw "Docker Desktop is running with container OS '$osType'. The training baseline requires Linux containers."
+        }
         $dockerReady = $true
         break
     }
-    if (($attempt % 2) -eq 0) { Write-Info 'Waiting for Rancher Desktop Moby engine...' }
+    if (($attempt % 2) -eq 0) { Write-Info 'Waiting for Docker Desktop engine...' }
     Start-Sleep -Seconds 3
 } while ((Get-Date) -lt $deadline)
 
 if (-not $dockerReady) {
-    $diagnostics = Get-RancherFailureDiagnostics
-    throw "Rancher Desktop Moby engine did not become ready within 5 minutes.`n$diagnostics"
+    $diagnostics = Get-DockerDesktopDiagnostics -DockerPath $dockerPath
+    throw "Docker Desktop engine did not become ready within 3 minutes.`n$diagnostics"
 }
 
-$dockerVersion = Invoke-ProbeWithTimeout -FilePath $dockerPath -ArgumentList @('--version') -TimeoutSeconds 15
+$dockerVersion = Invoke-ProbeWithTimeout -FilePath $dockerPath -ArgumentList @('version') -TimeoutSeconds 30
 Assert-ProbeSucceeded -Result $dockerVersion -Description 'Docker version check'
-$composeVersion = Invoke-ProbeWithTimeout -FilePath $dockerPath -ArgumentList @('compose','version') -TimeoutSeconds 15
+
+$composeVersion = Invoke-ProbeWithTimeout -FilePath $dockerPath -ArgumentList @('compose','version') -TimeoutSeconds 30
 Assert-ProbeSucceeded -Result $composeVersion -Description 'Docker Compose version check'
-Write-Success 'Rancher Desktop / Moby runtime validated'
+
+Write-Info 'Running Docker smoke test (hello-world)'
+$helloWorld = Invoke-ProbeWithTimeout -FilePath $dockerPath -ArgumentList @('run','--rm','hello-world') -TimeoutSeconds 120
+Assert-ProbeSucceeded -Result $helloWorld -Description 'Docker hello-world smoke test'
+if (($helloWorld.Output -join [Environment]::NewLine) -notmatch 'Hello from Docker!') {
+    throw 'Docker hello-world completed without the expected success marker.'
+}
+
+Write-Success 'Docker Desktop / WSL2 runtime validated'

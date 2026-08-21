@@ -20,5 +20,6 @@ platform:
     runtime: docker-engine
   windows:
     minimum_build: 22631
-    architecture: amd64
-    runtime: rancher-desktop-moby
+    architecture: amd64,arm64
+    runtime: docker-desktop-wsl2
+    arm64_vmware_fusion: client-tools-only

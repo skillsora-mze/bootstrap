@@ -1,96 +1,95 @@
-# Workstation Bootstrap User Guide
+# User Guide
 
-## Requirements
+## Purpose
+
+Workstation Bootstrap prepares training workstations for cloud, Infrastructure as Code, container and Kubernetes labs.
+
+## Supported environments
 
 ### macOS
-- macOS 14+
-- Apple Silicon
-- Internet access
-- administrator privileges
 
-OrbStack is installed through Homebrew. Docker Desktop is not used.
+- macOS 14+
+- Apple Silicon / arm64
+- OrbStack local container runtime
 
 ### Debian
+
 - Debian 12
 - amd64 or arm64
-- Internet access
-- `sudo` privileges
-
-### Windows
-- Windows 11 23H2 or newer, build 22631+
-- x64/amd64
-- Internet access
-- WinGet
-- WSL2 enabled for Rancher Desktop
-
-The bootstrap itself runs in native PowerShell.
-
-## Installation
-
-### macOS / Debian
-
-```bash
-git clone https://github.com/skillsora-mze/bootstrap.git
-cd bootstrap
-./bootstrap.sh
-```
+- Docker Engine CE local container runtime
 
 ### Windows
 
+- Windows 11 23H2+ (build 22631+)
+- x64/amd64 or arm64
+- native PowerShell tooling
+- Docker Desktop + WSL2 only when required hardware virtualization is available
+
+### Windows ARM64 on VMware Fusion / Apple Silicon
+
+This is a supported **client-tools-only** profile. VMware Fusion on Apple Silicon does not expose nested virtualization to Windows ARM guests, so the bootstrap does not attempt a local Docker Desktop engine and does not install `kind` for local clusters. Cloud CLIs, Terraform/Packer/Vagrant, kubectl, Helm, k9s, kubectx and terminal tooling remain available.
+
+## Windows first-run prerequisites
+
+Git is needed to clone the public repository. On a fresh Windows image, WinGet may require Microsoft App Installer registration. Once the repository is present, use the wrapper below so no persistent execution-policy change is required:
+
 ```powershell
-git clone https://github.com/skillsora-mze/bootstrap.git
-Set-Location bootstrap
-.\bootstrap.ps1
+.\bootstrap.cmd
 ```
 
-If WSL2 is missing, the Windows bootstrap stops before package changes. From an elevated PowerShell:
+For unattended execution:
 
 ```powershell
-wsl --install --no-distribution
+.\bootstrap.cmd -NonInteractive
 ```
 
-Reboot only if Windows requests it.
+The wrapper applies `ExecutionPolicy Bypass` only to the child PowerShell process.
 
-## Interactive module selection
+## WinGet source recovery
 
-Interactive runs show all modules with their defaults:
+The bootstrap validates the WinGet community source. If WinGet returns `0x8a15000f` (source data missing), the bootstrap registers the official Microsoft source package, resets/updates sources and retries. Unrelated failures are not masked.
 
-```text
-1. [x] system_packages
-2. [x] containers
-3. [x] aws
-4. [x] azure
-5. [x] hashicorp
-6. [x] kubernetes
-7. [x] terminal
-```
+## Module selection
 
-Enter numbers such as `3,4` to toggle AWS and Azure. Press Enter with no value to start. The choice applies only to that run and does not edit `config/bootstrap.yaml`.
+Default module state is defined in `config/bootstrap.yaml`:
 
-Use `./bootstrap.sh --non-interactive` or `.\bootstrap.ps1 -NonInteractive` for automation.
+- `system_packages`
+- `containers`
+- `aws`
+- `azure`
+- `hashicorp`
+- `kubernetes`
+- `terminal`
 
-## Post-installation
+Interactive selection affects only the current run and never rewrites repository configuration.
 
-Open a new terminal session, then run:
+## Containers
 
-```bash
-./scripts/verify-workstation.sh
-```
+- macOS: OrbStack.
+- Debian: Docker Engine CE.
+- Windows with virtualization capability: Docker Desktop, WSL2 backend, Linux containers, Docker Compose and `hello-world` smoke test.
+- Windows ARM64 VMware Fusion / Apple Silicon: local container runtime skipped by design.
 
-or on Windows:
+## Kubernetes
+
+`kubectl`, Helm 3, k9s and kubectx are installed on Windows supported profiles. `kind` is installed only when the profile has a supported local container runtime. Docker Desktop Kubernetes is not part of the baseline.
+
+## Verification
+
+Windows:
 
 ```powershell
 .\scripts\verify-workstation.ps1
 ```
 
-## Container runtime
+macOS / Debian:
 
-macOS: `orb status`, `docker info`, `docker compose version`.
+```bash
+./scripts/verify-workstation.sh
+```
 
-Debian: `systemctl status docker --no-pager`, then `docker info` after re-login if group membership was newly added.
+Verification is profile-aware: it does not report Docker or `kind` as missing on the Windows ARM64 VMware Fusion client-tools-only profile.
 
-Windows: Rancher Desktop is configured with Moby, embedded Kubernetes disabled, and Docker context `default`. `kind` provides the local Kubernetes cluster mechanism.
+## Idempotence
 
-## Windows Ansible note
-
-Native Windows Ansible control-node execution is outside this project's support matrix. Use WSL2 for Ansible-specific labs.
+A release/profile validation requires a successful first bootstrap, verification, then a successful second bootstrap and verification without duplicate profile content or unintended reinstall behavior.
