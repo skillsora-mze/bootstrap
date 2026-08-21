@@ -1,67 +1,52 @@
 # Workstation Bootstrap
 
-Cross-platform workstation bootstrap for AWS, Azure, Infrastructure as Code, Kubernetes and container training labs.
+Reproducible workstation bootstrap for cloud, DevOps and Kubernetes training labs.
 
-## Supported platforms
+## Supported profiles
 
-| Platform | Architecture | Container runtime |
+| Platform | Architecture | Local containers |
 |---|---|---|
-| macOS 14+ | Apple Silicon | OrbStack |
+| macOS 14+ | arm64 | OrbStack |
 | Debian 12 | amd64 / arm64 | Docker Engine CE |
-| Windows 11 23H2+ (build 22631+) | x64 | Rancher Desktop + Moby |
+| Windows 11 23H2+ | x64 | Docker Desktop + WSL2 |
+| Windows 11 23H2+ | arm64 | Docker Desktop + WSL2 when hardware virtualization is exposed |
+| Windows 11 ARM64 on VMware Fusion / Apple Silicon | arm64 | Not available; client-tools-only profile |
 
-Windows requires WSL2 for Rancher Desktop. Docker Desktop is not the project baseline.
+Windows ARM64 VMware Fusion guests still receive system, AWS, Azure, HashiCorp, terminal, kubectl, Helm, k9s and kubectx tooling. The bootstrap skips Docker Desktop and `kind` locally on that profile.
 
-## Install
+## Quick start
 
 macOS / Debian:
 
 ```bash
-git clone https://github.com/skillsora-mze/bootstrap.git
-cd bootstrap
 ./bootstrap.sh
 ```
 
-Windows PowerShell:
+Windows (recommended on a fresh VM):
 
 ```powershell
-git clone https://github.com/skillsora-mze/bootstrap.git
-Set-Location bootstrap
+.\bootstrap.cmd
+```
+
+Unattended Windows:
+
+```powershell
+.\bootstrap.cmd -NonInteractive
+```
+
+Direct PowerShell invocation remains available when execution policy permits:
+
+```powershell
 .\bootstrap.ps1
 ```
 
-Interactive terminal runs display the module list before making package changes. Toggle module numbers and press Enter to continue.
+## Design
 
-For CI or unattended execution:
+- modular and idempotent
+- configuration-driven module defaults
+- no credentials in the repository
+- safe platform capability gates
+- first-party/signed package sources where practical
+- real runtime smoke tests for local container profiles
 
-```bash
-./bootstrap.sh --non-interactive
-```
-
-```powershell
-.\bootstrap.ps1 -NonInteractive
-```
-
-## Modules
-
-`system_packages`, `containers`, `aws`, `azure`, `hashicorp`, `kubernetes`, `terminal`.
-
-Defaults are stored in `config/bootstrap.yaml`; interactive choices apply only to the current run.
-
-## Verify
-
-macOS / Debian:
-
-```bash
-./scripts/verify-workstation.sh
-```
-
-Windows:
-
-```powershell
-.\scripts\verify-workstation.ps1
-```
-
-## Release status
-
-Version 1.5.0 is a release candidate until the real-host first-run and idempotence checks in `docs/RELEASE_CHECKLIST.md` pass on every supported platform.
+See `USERGUIDE.md`, `PROJECT_OVERVIEW.md`, `CURRENT_STATE.md`, and `PROJECT_DECISIONS.md` for the operational contract.

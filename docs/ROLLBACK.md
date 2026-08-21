@@ -1,37 +1,19 @@
-# Rollback Guide
+# Rollback
 
-Workstation Bootstrap intentionally does not provide an automatic destructive uninstall command. Rollback is platform-specific and should be performed only when required.
+## General
 
-## Shell customization
+Workstation Bootstrap prefers additive, reversible changes. Package removal is never performed automatically as part of a rollback.
 
-Safe rollback:
+## Git rollback
 
-1. Remove `~/.training_aliases`.
-2. Remove the marked `# Workstation Bootstrap training aliases` block from `.zshrc` or `.bashrc`.
+Before release, keep changes on a feature branch. To abandon an unmerged branch, switch back to `main` and delete the feature branch only after confirming no work is needed.
 
-## macOS
+After merge, revert the merge/commit through normal Git history rather than manually editing installed workstations.
 
-Packages are managed by Homebrew. Review installed dependencies before uninstalling because tools may be shared with other workflows.
+## Windows profile changes
 
-OrbStack can be removed with Homebrew only when container labs are no longer required:
+The Windows ARM64 VMware Fusion capability gate only changes bootstrap behavior: it skips local Docker and `kind`. Rolling it back means reverting the project commit; it does not require deleting user data.
 
-```bash
-brew uninstall --cask orbstack
-```
+The `bootstrap.cmd` execution-policy bypass is process-scoped and leaves no persistent policy change.
 
-## Debian
-
-Do not remove APT repositories or packages automatically from training machines that may use them outside this project.
-
-Repository files created by this project are:
-
-```text
-/etc/apt/sources.list.d/docker.sources
-/etc/apt/sources.list.d/azure-cli.sources
-/etc/apt/sources.list.d/hashicorp.list
-/etc/apt/sources.list.d/kubernetes.list
-```
-
-Keyrings created by this project are under `/etc/apt/keyrings/` plus `/etc/apt/keyrings/hashicorp-archive-keyring.gpg`.
-
-Before deleting anything, inspect package ownership and operational dependencies. Prefer restoring from the workstation image/snapshot when one is available.
+WinGet source repair only runs for the known source-data-missing condition and restores Microsoft default source metadata.

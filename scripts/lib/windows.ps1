@@ -1,6 +1,16 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# Keep native command output readable in Windows PowerShell 5.1 and PowerShell 7.
+# WinGet emits Unicode progress characters; forcing UTF-8 prevents mojibake.
+$script:Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[Console]::InputEncoding = $script:Utf8NoBom
+[Console]::OutputEncoding = $script:Utf8NoBom
+$global:OutputEncoding = $script:Utf8NoBom
+if (Get-Command chcp.com -ErrorAction SilentlyContinue) {
+    & chcp.com 65001 > $null
+}
+
 function Write-Info([string]$Message) { Write-Host "[INFO] $Message" }
 function Write-Success([string]$Message) { Write-Host "[ OK ] $Message" }
 function Write-Warn([string]$Message) { Write-Warning $Message }
@@ -10,12 +20,47 @@ function Get-ManagedBinDir {
     return (Join-Path $HOME '.workstation-bootstrap/bin')
 }
 
+function Get-WindowsOsArchitecture {
+    $arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()
+    switch ($arch) {
+        'X64' { return 'AMD64' }
+        'Arm64' { return 'ARM64' }
+        default { return $arch.ToUpperInvariant() }
+    }
+}
+
+function Get-WindowsLocalContainerCapability {
+    $arch = Get-WindowsOsArchitecture
+    if ($arch -eq 'ARM64') {
+        try {
+            $computer = Get-CimInstance -ClassName Win32_ComputerSystem -ErrorAction Stop
+            if ($computer.Manufacturer -match '(?i)VMware') {
+                return [pscustomobject]@{
+                    Supported = $false
+                    Profile = 'windows-arm64-vmware-client-tools-only'
+                    Reason = 'Windows ARM64 under VMware Fusion on Apple Silicon does not expose the nested virtualization required by WSL2/Docker Desktop. Local containers and kind are skipped.'
+                }
+            }
+        }
+        catch {
+            Write-Warn "Unable to query Win32_ComputerSystem for virtualization profile detection: $($_.Exception.Message)"
+        }
+    }
+
+    return [pscustomobject]@{
+        Supported = $true
+        Profile = 'windows-local-containers'
+        Reason = ''
+    }
+}
+
 function Assert-SupportedWindowsPlatform {
     if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
         throw 'This entry point supports Windows only.'
     }
-    if ($env:PROCESSOR_ARCHITECTURE -ne 'AMD64') {
-        throw "Supported Windows architecture: x64/amd64 only (detected: $env:PROCESSOR_ARCHITECTURE)."
+    $osArch = Get-WindowsOsArchitecture
+    if ($osArch -notin @('AMD64','ARM64')) {
+        throw "Supported Windows architectures: x64/amd64 and arm64 (detected: $osArch)."
     }
     $build = [Environment]::OSVersion.Version.Build
     if ($build -lt 22631) {
@@ -25,7 +70,40 @@ function Assert-SupportedWindowsPlatform {
 
 function Assert-WinGet {
     if (-not (Get-Command winget.exe -ErrorAction SilentlyContinue)) {
+        try {
+            Add-AppxPackage -RegisterByFamilyName -MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe -ErrorAction Stop
+            Refresh-ProcessPath
+        }
+        catch { }
+    }
+    if (-not (Get-Command winget.exe -ErrorAction SilentlyContinue)) {
         throw 'WinGet is required. Install/update Microsoft App Installer, then rerun the bootstrap.'
+    }
+
+    $probe = Invoke-NativeCommand -FilePath 'winget.exe' -ArgumentList @('search','--id','Git.Git','--exact','--source','winget','--accept-source-agreements','--disable-interactivity') -AllowFailure -Quiet
+    if ($probe.ExitCode -eq 0) { return }
+
+    $detail = $probe.Output -join [Environment]::NewLine
+    if ($detail -notmatch '0x8a15000f') {
+        throw "WinGet community source is unavailable.`n$detail"
+    }
+
+    Write-Warn 'WinGet source data is missing (0x8a15000f); repairing Microsoft source metadata.'
+    $sourcePackage = Join-Path $env:TEMP 'winget-source.msix'
+    try {
+        Invoke-WebRequest -Uri 'https://cdn.winget.microsoft.com/cache/source.msix' -OutFile $sourcePackage -UseBasicParsing
+        Add-AppxPackage -Path $sourcePackage -ErrorAction Stop
+        Invoke-NativeCommand -FilePath 'winget.exe' -ArgumentList @('source','reset','--force') | Out-Null
+        Invoke-NativeCommand -FilePath 'winget.exe' -ArgumentList @('source','update') | Out-Null
+    }
+    finally {
+        Remove-Item -LiteralPath $sourcePackage -Force -ErrorAction SilentlyContinue
+    }
+
+    $retry = Invoke-NativeCommand -FilePath 'winget.exe' -ArgumentList @('search','--id','Git.Git','--exact','--source','winget','--accept-source-agreements','--disable-interactivity') -AllowFailure -Quiet
+    if ($retry.ExitCode -ne 0) {
+        $retryDetail = $retry.Output -join [Environment]::NewLine
+        throw "WinGet source repair did not restore the community source.`n$retryDetail"
     }
 }
 

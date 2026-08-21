@@ -35,6 +35,7 @@ if grep -q 'brew "aws-sam-cli"' "${ROOT_DIR}/packages/macos/Brewfile"; then
 fi
 
 [[ -f "${ROOT_DIR}/bootstrap.ps1" ]]
+[[ -f "${ROOT_DIR}/bootstrap.cmd" ]]
 [[ -f "${ROOT_DIR}/packages/windows/packages.psd1" ]]
 
 if grep -R -q 'ibmmo/workstation-bootstrap' "${ROOT_DIR}/README.md" "${ROOT_DIR}/USERGUIDE.md" "${ROOT_DIR}/docs"; then
@@ -63,3 +64,9 @@ if grep -q 'module_enabled' "${ROOT_DIR}/scripts/lib/module.sh"; then
 fi
 
 [[ -f "${ROOT_DIR}/tests/windows/test-native-command.ps1" ]]
+
+legacy_runtime_pattern="$(printf '%s%s' 'ranch' 'er')|$(printf '%s%s' 'rd' 'ctl')"
+if grep -R -E -i -q "${legacy_runtime_pattern}" "${ROOT_DIR}" --exclude-dir=.git; then
+    echo 'Legacy Windows container runtime reference present' >&2
+    exit 1
+fi

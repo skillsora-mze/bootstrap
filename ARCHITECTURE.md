@@ -1,51 +1,47 @@
 # Architecture
 
-## Entry points
+## Overview
+
+Workstation Bootstrap exposes native entry points and platform-specific module implementations behind one module model.
 
 ```text
-macOS / Debian                    Windows
-./bootstrap.sh                    .\bootstrap.ps1
-      |                                  |
-      +-- platform/config                +-- platform/config
-      +-- interactive selection          +-- interactive selection
-      +-- module dispatcher              +-- module dispatcher
-                  \                      /
-                   config/bootstrap.yaml
-                   config/versions.env
+bootstrap.sh / bootstrap.cmd / bootstrap.ps1
+            |
+            +-- configuration + platform/capability detection
+            |
+            +-- system_packages
+            +-- containers
+            +-- aws
+            +-- azure
+            +-- hashicorp
+            +-- kubernetes
+            +-- terminal
 ```
 
-Interactive selection is an in-memory override. It does not modify configuration files.
+## Container runtimes
 
-## Modules
+- macOS Apple Silicon: OrbStack.
+- Debian 12: Docker Engine CE.
+- Windows x64/arm64 with required virtualization: Docker Desktop using the WSL2 Linux-container backend.
+- Windows ARM64 under VMware Fusion on Apple Silicon: no local container runtime; the module exits successfully with an explicit capability warning.
 
-Each logical module lives under `scripts/modules/<module>/` and has Bash and PowerShell implementations where supported.
+The Windows capability gate is evaluated before WSL/Docker startup. The known VMware Fusion ARM64 profile is detected from Windows architecture and VMware computer-system metadata. This avoids installing or starting a runtime that cannot satisfy its virtualization prerequisites.
 
-Execution order is fixed:
+## Kubernetes
 
-1. `system_packages`
-2. `containers`
-3. `aws`
-4. `azure`
-5. `hashicorp`
-6. `kubernetes`
-7. `terminal`
+The Kubernetes module is client-first. `kubectl`, Helm 3, k9s and kubectx are independent of a local cluster. `kind` is installed and validated only when the platform can provide a supported local container runtime.
 
-A user may disable a module for a run, but selected modules retain this order.
+## Windows execution
 
-## Windows execution model
+Windows uses native PowerShell. `bootstrap.cmd` is the recommended launcher for fresh machines because it invokes `bootstrap.ps1` with a process-only execution-policy bypass.
 
-Windows uses native PowerShell. WSL2 is a prerequisite only for Rancher Desktop. External commands are executed through `Invoke-NativeCommand`, which captures output and evaluates `$LASTEXITCODE` rather than treating stderr text as a failure.
+Native external commands are executed through `Invoke-NativeCommand`, which evaluates process exit codes. Console encoding is normalized to UTF-8 before WinGet/native output is consumed.
 
-Rancher Desktop is started in background through `rdctl`, configured with Moby and Kubernetes disabled, and the Docker context is normalized to `default` before validation.
+WinGet source state is probed before package operations. The project repairs only the known `0x8a15000f` source-data-missing condition using the official Microsoft source package.
 
-## Configuration
+## Validation
 
-`config/bootstrap.yaml` contains stable feature defaults and platform policy. `config/versions.env` contains version/hash baselines shared by Bash and PowerShell.
+Static CI checks structure, syntax and policy invariants. Runtime validation is profile-specific:
 
-The YAML reader intentionally supports the project's small fixed schema; it is not a general YAML parser.
-
-## Verification
-
-- `tests/run.sh`: local Bash/static structural tests.
-- GitHub Actions: Ubuntu ShellCheck/tests, macOS Bash/Brewfile validation, Windows PowerShell 5.1 parse + PowerShell 7 static analysis.
-- `scripts/verify-workstation.sh` and `.ps1`: host runtime verification.
+- local-container profiles: engine OS, Compose and `hello-world` are mandatory;
+- Windows ARM64 VMware Fusion: Docker/`kind` are intentionally absent and verification checks the remaining client toolchain.

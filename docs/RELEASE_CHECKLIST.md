@@ -1,58 +1,52 @@
 # Release Checklist
 
-## Static validation
+## Common
 
-- [ ] `./tests/run.sh` passes.
-- [ ] ShellCheck passes on all Bash scripts.
-- [ ] Windows PowerShell 5.1 parses every `.ps1` file.
-- [ ] `tests/windows/test-static.ps1` passes under PowerShell 7.
-- [ ] PSScriptAnalyzer reports no errors.
-- [ ] CI passes on Ubuntu, macOS and Windows runners.
+- [ ] Static test suite passes.
+- [ ] No credentials/secrets are present.
+- [ ] Documentation and source-of-truth files match the implementation.
+- [ ] First bootstrap completes for the tested profile.
+- [ ] Platform verification succeeds.
+- [ ] Second bootstrap completes without unintended reinstall/profile duplication.
+- [ ] Second platform verification succeeds.
 
-## Interactive behavior
+## macOS Apple Silicon
 
-- [ ] Default terminal launch presents module selection.
-- [ ] Toggling modules changes only the current run.
-- [ ] `config/bootstrap.yaml` remains unchanged after interactive runs.
-- [ ] Bash `--non-interactive` and PowerShell `-NonInteractive` bypass prompts.
+- [ ] macOS 14+ arm64 host.
+- [ ] OrbStack starts and Docker-compatible commands work.
+- [ ] Full selected toolchain verifies.
 
-## macOS smoke test
+## Debian 12
 
-- [ ] Full bootstrap succeeds on a clean supported Apple Silicon Mac.
-- [ ] OrbStack starts and `docker info` succeeds.
-- [ ] AWS SAM clean install uses the AWS first-party package and `sam --version` succeeds.
-- [ ] `helm version --short` reports the Helm 3 baseline.
-- [ ] Second full run succeeds without duplicate profile content.
-- [ ] `scripts/verify-workstation.sh` succeeds.
+- [ ] Debian 12 amd64 first-run/idempotence passes.
+- [ ] Debian 12 arm64 first-run/idempotence passes if released.
+- [ ] Docker Engine, Compose and Kubernetes client/local tooling verify.
 
-## Debian smoke test
+## Windows x64 container profile
 
-- [ ] Full bootstrap succeeds on clean Debian 12 amd64.
-- [ ] Full bootstrap succeeds on clean Debian 12 arm64 if arm64 remains supported.
-- [ ] Docker works for the normal user after re-login if group membership was added.
-- [ ] `azd version` succeeds from the pinned verified artifact.
-- [ ] Second full run succeeds.
-- [ ] `scripts/verify-workstation.sh` succeeds.
+- [ ] Windows 11 build 22631+ x64.
+- [ ] Current WSL2 is available.
+- [ ] Docker Desktop starts with WSL2 backend.
+- [ ] `docker info --format '{{.OSType}}'` returns `linux`.
+- [ ] `docker compose version` succeeds.
+- [ ] `docker run --rm hello-world` prints the success marker.
+- [ ] `kind version` succeeds.
+- [ ] Full verification passes twice.
 
-## Windows smoke test
+## Windows ARM64 container-capable profile
 
-- [ ] Host is Windows 11 build 22631+ x64 with current WSL2 available.
-- [ ] Full `.\bootstrap.ps1` succeeds from Windows PowerShell 5.1.
-- [ ] Full `.\bootstrap.ps1` succeeds from PowerShell 7.
-- [ ] Rancher Desktop first start does not require the setup wizard.
-- [ ] Rancher Desktop uses Moby and embedded Kubernetes is disabled.
-- [ ] A stale `desktop-linux` context is automatically changed to `default`.
-- [ ] `aws --version` and `sam --version` succeed immediately after installation.
-- [ ] `docker info`, `docker compose version`, `kubectl version --client`, `helm version --short`, `kind version` and `k9s version` succeed.
-- [ ] Both Windows PowerShell and PowerShell 7 profile files contain exactly one managed block.
-- [ ] Second full bootstrap run succeeds.
-- [ ] `.\scripts\verify-workstation.ps1` succeeds.
+- [ ] Windows 11 build 22631+ ARM64 on hardware/hypervisor that exposes required virtualization.
+- [ ] Docker Desktop ARM installation and startup are validated on the actual target environment.
+- [ ] Linux-engine, Compose, hello-world and `kind` checks pass.
+- [ ] Full verification passes twice.
 
-## Release hygiene
+## Windows ARM64 VMware Fusion / Apple Silicon profile
 
-- [ ] `docs/HARDENING_REPORT.md` reviewed.
-- [ ] No credentials, tokens or private material are present.
-- [ ] Source-of-truth documents match implementation.
-- [ ] CHANGELOG/version updated.
-- [ ] Feature branch -> CI -> PR -> merge to protected `main`.
-- [ ] Tag created only after all smoke tests pass.
+- [ ] Guest is detected as VMware + ARM64.
+- [ ] Bootstrap reports client-tools-only/local-containers skipped.
+- [ ] Docker Desktop is not required or installed by the bootstrap for this profile.
+- [ ] `kind` is not required or installed by the Kubernetes module.
+- [ ] Git/PowerShell/Python/Go/jq/yq/ripgrep/starship verify when selected.
+- [ ] AWS/Azure/HashiCorp tools verify when selected.
+- [ ] kubectl/Helm/k9s/kubectx verify when selected.
+- [ ] First run and second idempotence run both pass.
