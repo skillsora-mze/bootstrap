@@ -42,11 +42,11 @@
 
 ## Windows ARM64 VMware Fusion / Apple Silicon profile
 
-- [ ] Guest is detected as VMware + ARM64.
-- [ ] Bootstrap reports client-tools-only/local-containers skipped.
-- [ ] Docker Desktop is not required or installed by the bootstrap for this profile.
-- [ ] `kind` is not required or installed by the Kubernetes module.
-- [ ] Git/PowerShell/Python/Go/jq/yq/ripgrep/starship verify when selected.
-- [ ] AWS/Azure/HashiCorp tools verify when selected.
-- [ ] kubectl/Helm/k9s/kubectx verify when selected.
-- [ ] First run and second idempotence run both pass.
+- [x] Guest is detected as VMware + ARM64.
+- [x] Bootstrap reports client-tools-only/local-containers skipped.
+- [x] Docker Desktop is not required or installed by the bootstrap for this profile.
+- [x] `kind` is not required or installed by the Kubernetes module.
+- [x] Git/PowerShell/Python/Go/jq/yq/ripgrep/starship verify when selected.
+- [x] AWS/Azure/HashiCorp tools verify when selected.
+- [x] kubectl/Helm/k9s/kubectx verify when selected.
+- [x] First run and second idempotence run both pass.

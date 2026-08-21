@@ -50,3 +50,6 @@ Treat Windows 11 ARM64 guests running under VMware Fusion on Apple Silicon as cl
 
 ## D017 - WinGet self-repair on fresh Windows profiles
 If WinGet exists but its community source fails with source-data-missing error `0x8a15000f`, repair the Microsoft source package and refresh the default sources before package installation. Do not apply the repair for unrelated WinGet/network failures.
+
+## D018 - PowerShell installation on Windows ARM64
+On Windows ARM64, install PowerShell from the official architecture-specific MSI rather than the WinGet MSIX bundle. Fresh WinRM-provisioned Windows ARM64 guests can fail to install the WinGet MSIX bundle with `0x80070002` even though an official ARM64 MSI is available. Pin the PowerShell release version and ARM64 MSI SHA-256 in `config/versions.env`, verify the checksum before installation, and keep the existing WinGet path unchanged for other Windows architectures.
