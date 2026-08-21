@@ -15,6 +15,7 @@
 - A Windows `bootstrap.cmd` wrapper uses a process-scoped execution-policy bypass and does not change persistent machine/user policy.
 - Windows PowerShell console encoding is normalized to UTF-8 to prevent WinGet Unicode progress-bar mojibake.
 - WinGet source corruption code `0x8a15000f` is repaired automatically by registering the Microsoft WinGet source package and refreshing sources.
+- Windows ARM64 installs PowerShell from the official ARM64 MSI with a pinned version and SHA-256 because the WinGet MSIX path can fail under fresh WinRM provisioning with `0x80070002`.
 - Windows native-command wrapper treats exit codes as authoritative and prevents harmless stderr warnings from aborting the bootstrap.
 - Docker Desktop installation uses WinGet with the WSL2 backend and accepted license, then bounded CLI startup and readiness checks.
 - Docker Desktop runtime validation requires the Linux container engine, Docker Compose, and a successful `hello-world` smoke test.
