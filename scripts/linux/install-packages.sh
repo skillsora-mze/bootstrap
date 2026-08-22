@@ -6,6 +6,8 @@ source "${ROOT_DIR}/scripts/lib/log.sh"
 source "${ROOT_DIR}/scripts/lib/platform.sh"
 source "${ROOT_DIR}/scripts/lib/download.sh"
 
+ARCH="${ARCH:-$(detect_architecture)}"
+
 install_uv_linux() {
     local tmp_dir archive platform expected
 
