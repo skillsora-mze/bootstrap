@@ -4,6 +4,7 @@ curl
 wget
 git
 git-lfs
+gh
 jq
 unzip
 zip
