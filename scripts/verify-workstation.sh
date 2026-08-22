@@ -11,7 +11,7 @@ required=()
 
 while IFS= read -r module; do
     case "${module}" in
-        system_packages) required+=(git gh python uv go jq yq rg starship) ;;
+        system_packages) required+=(git gh python3 uv go jq yq rg starship) ;;
         containers) required+=(docker); containers_enabled=1 ;;
         aws) required+=(aws sam) ;;
         azure) required+=(az azd) ;;

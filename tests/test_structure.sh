@@ -70,3 +70,44 @@ if grep -R -E -i -q "${legacy_runtime_pattern}" "${ROOT_DIR}" --exclude-dir=.git
     echo 'Legacy Windows container runtime reference present' >&2
     exit 1
 fi
+
+grep -Fxq 'gh' "${ROOT_DIR}/packages/debian/packages.txt" || {
+    echo "GitHub CLI missing from Debian system packages" >&2
+    exit 1
+}
+
+grep -Fq 'UV_VERSION=' "${ROOT_DIR}/config/versions.env" || {
+    echo "uv version baseline missing" >&2
+    exit 1
+}
+
+grep -Fq 'YQ_VERSION=' "${ROOT_DIR}/config/versions.env" || {
+    echo "yq version baseline missing" >&2
+    exit 1
+}
+
+grep -Fq 'STARSHIP_VERSION=' "${ROOT_DIR}/config/versions.env" || {
+    echo "starship version baseline missing" >&2
+    exit 1
+}
+
+grep -Fq 'github.com/astral-sh/uv/releases/download/' "${ROOT_DIR}/scripts/linux/install-packages.sh" || {
+    echo "Verified uv Linux release installation missing" >&2
+    exit 1
+}
+
+grep -Fq 'github.com/mikefarah/yq/releases/download/' "${ROOT_DIR}/scripts/linux/install-packages.sh" || {
+    echo "MikeFarah yq Linux release installation missing" >&2
+    exit 1
+}
+
+grep -Fq 'github.com/starship/starship/releases/download/' "${ROOT_DIR}/scripts/linux/install-packages.sh" || {
+    echo "Starship Linux release installation missing" >&2
+    exit 1
+}
+
+grep -Fq 'system_packages) required+=(git gh python3 uv go jq yq rg starship)' \
+    "${ROOT_DIR}/scripts/verify-workstation.sh" || {
+    echo "Linux verification baseline is inconsistent" >&2
+    exit 1
+}
