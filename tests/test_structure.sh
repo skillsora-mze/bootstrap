@@ -58,6 +58,11 @@ if grep -R -q 'install-azd\.sh' "${ROOT_DIR}/scripts"; then
     exit 1
 fi
 
+grep -Fq 'azd-linux-arm64' "${ROOT_DIR}/scripts/modules/azure/install.sh" || {
+    echo "Debian ARM64 azd archive binary name is not handled" >&2
+    exit 1
+}
+
 if grep -q 'module_enabled' "${ROOT_DIR}/scripts/lib/module.sh"; then
     echo "Dispatcher still re-checks persistent module configuration" >&2
     exit 1

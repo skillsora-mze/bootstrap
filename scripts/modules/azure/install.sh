@@ -48,8 +48,8 @@ install_azd_debian() {
             download_file "https://github.com/Azure/azure-dev/releases/download/azure-dev-cli_${AZD_VERSION}/${asset}" "${tmp_dir}/${asset}"
             sha256_verify "${tmp_dir}/${asset}" "${expected}"
             tar -xzf "${tmp_dir}/${asset}" -C "${tmp_dir}"
-            [[ -f "${tmp_dir}/azd" ]] || { log_error "azd binary missing from release archive"; exit 1; }
-            sudo install -m 0755 "${tmp_dir}/azd" /usr/local/bin/azd
+            [[ -f "${tmp_dir}/azd-linux-arm64" ]] || { log_error "azd ARM64 binary missing from release archive"; exit 1; }
+            sudo install -m 0755 "${tmp_dir}/azd-linux-arm64" /usr/local/bin/azd
             ;;
         *) log_error "Unsupported architecture for azd: ${ARCH}"; exit 1 ;;
     esac
