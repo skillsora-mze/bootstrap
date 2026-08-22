@@ -2,7 +2,7 @@
 
 ## Version
 
-`1.5.0` release candidate, final Windows container baseline.
+`v1.5.0` is released. `main` contains additional validated Debian ARM64 fixes pending the next patch release.
 
 ## Implemented
 
@@ -26,6 +26,7 @@
 - Helm 3 baseline is preserved across platforms and resolves the Windows amd64/arm64 archive explicitly.
 - AWS SAM clean macOS installs use the AWS first-party package installer; Debian installs remain pinned and checksum-verified.
 - Debian `azd` uses pinned release artifacts with SHA-256 verification rather than a mutable installer script.
+- Debian system packages include `gh`, and Linux installs pinned, SHA-256-verified `uv`, MikeFarah `yq`, and Starship releases on amd64/arm64.
 - Direct Linux Helm, kind and k9s release artifacts are checksum-verified with upstream SHA-256 metadata.
 - Stable package-manager channels are validated for the configured compatibility contract rather than falsely treated as exact direct-artifact pins.
 - CI jobs cover Bash, macOS and Windows static validation.
@@ -36,7 +37,9 @@ Static validation is automated. Real-host testing on Windows 11 ARM64 under VMwa
 
 Docker Desktop remains the Windows local-container baseline only on Windows systems where hardware virtualization is exposed to the guest/host as required by WSL2.
 
-**v1.5.0 is production-ready only after the applicable smoke-test and second-run idempotence checks in `docs/RELEASE_CHECKLIST.md` pass for the profile being released.**
+Debian 12 ARM64 validation after `v1.5.0` confirmed a successful full bootstrap, complete workstation verification, and successful second-run idempotence. The second run did not re-download or reinstall the pinned `uv`, `yq`, or Starship artifacts.
+
+The post-`v1.5.0` Debian fixes on `main` are pending the next patch release.
 
 ## Residual risks
 
