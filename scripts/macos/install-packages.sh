@@ -25,21 +25,20 @@ if ! command -v brew >/dev/null 2>&1; then
     NONINTERACTIVE=1 /bin/bash "${installer}"
 
     if [[ -x /opt/homebrew/bin/brew ]]; then
-        eval "$(/opt/homebrew/bin/brew shellenv)"
-    elif [[ -x /usr/local/bin/brew ]]; then
-        eval "$(/usr/local/bin/brew shellenv)"
-    else
-        log_error "Homebrew installation completed but brew was not found"
-        exit 1
-    fi
+    touch "${HOME}/.zprofile"
+    brew_shellenv_line="eval \"\$(/opt/homebrew/bin/brew shellenv)\""
+    grep -Fq "${brew_shellenv_line}" "${HOME}/.zprofile" || \
+        printf '%s\n' "${brew_shellenv_line}" >> "${HOME}/.zprofile"
+fi
 else
     log_info "Homebrew already installed"
 fi
 
 if [[ -x /opt/homebrew/bin/brew ]]; then
     touch "${HOME}/.zprofile"
-    grep -Fq 'eval "$(/opt/homebrew/bin/brew shellenv)"' "${HOME}/.zprofile" || \
-        echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> "${HOME}/.zprofile"
+    brew_shellenv_line="eval \"\$(/opt/homebrew/bin/brew shellenv)\""
+    grep -Fq "${brew_shellenv_line}" "${HOME}/.zprofile" || \
+        printf '%s\n' "${brew_shellenv_line}" >> "${HOME}/.zprofile"
 fi
 
 [[ -f "${BREWFILE}" ]] || { log_error "Brewfile not found: ${BREWFILE}"; exit 1; }
