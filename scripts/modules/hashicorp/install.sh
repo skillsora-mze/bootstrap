@@ -36,10 +36,12 @@ case "${OS}" in
             log_error "Homebrew is required to install HashiCorp tooling. Enable the system_packages module first on a clean Mac."
             exit 1
         }
-        command -v terraform >/dev/null 2>&1 || brew install terraform
-        command -v packer >/dev/null 2>&1 || brew install packer
+        brew tap hashicorp/tap
+
+        command -v terraform >/dev/null 2>&1 || brew install hashicorp/tap/terraform
+        command -v packer >/dev/null 2>&1 || brew install hashicorp/tap/packer
         command -v ansible >/dev/null 2>&1 || brew install ansible
-        command -v vagrant >/dev/null 2>&1 || brew install --cask vagrant
+        command -v vagrant >/dev/null 2>&1 || brew install hashicorp/tap/hashicorp-vagrant
         ;;
 esac
 

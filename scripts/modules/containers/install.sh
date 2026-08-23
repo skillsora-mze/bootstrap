@@ -52,41 +52,48 @@ configure_linux_user() {
     fi
 }
 
-ensure_orbstack_macos() {
-    if [[ -d /Applications/Docker.app ]]; then
-        log_error "Docker Desktop is installed. This project standardizes on OrbStack for macOS."
-        log_error "Remove Docker Desktop explicitly before running the bootstrap; it will not be uninstalled automatically."
+ensure_colima_macos() {
+    command -v brew >/dev/null 2>&1 || {
+        log_error "Homebrew is required. Enable the system_packages module first on a clean Mac."
         exit 1
+    }
+
+    command -v colima >/dev/null 2>&1 || {
+        log_error "Colima is not installed. Enable the system_packages module."
+        exit 1
+    }
+
+    command -v docker >/dev/null 2>&1 || {
+        log_error "Docker CLI is not installed. Enable the system_packages module."
+        exit 1
+    }
+
+    if ! colima status >/dev/null 2>&1; then
+        log_info "Starting Colima"
+        colima start
+    else
+        log_info "Colima already running"
     fi
 
-    if ! command -v orb >/dev/null 2>&1; then
-        command -v brew >/dev/null 2>&1 || {
-            log_error "Homebrew is required to install OrbStack. Enable the system_packages module first on a clean Mac."
-            exit 1
-        }
-        log_info "Installing OrbStack"
-        brew install --cask orbstack
-        hash -r
-    fi
+    local elapsed=0
+    local timeout=120
 
-    command -v orb >/dev/null 2>&1 || { log_error "OrbStack CLI not found after installation"; exit 1; }
-
-    if ! orb status >/dev/null 2>&1; then
-        log_info "Starting OrbStack"
-        orb start
-    fi
-
-    local elapsed=0 timeout=120
     until docker info >/dev/null 2>&1; do
-        (( elapsed >= timeout )) && { log_error "OrbStack container engine did not become ready"; orb status || true; exit 1; }
+        if (( elapsed >= timeout )); then
+            log_error "Colima Docker engine did not become ready"
+            colima status || true
+            exit 1
+        fi
+
         sleep 3
         elapsed=$((elapsed + 3))
     done
 }
 
+
 case "${OS}" in
     macos)
-        ensure_orbstack_macos
+        ensure_colima_macos
         ;;
     linux)
         if dpkg -s docker-ce >/dev/null 2>&1; then

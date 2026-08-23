@@ -12,6 +12,16 @@ source "${ROOT_DIR}/scripts/lib/download.sh"
 source "${ROOT_DIR}/scripts/lib/module.sh"
 source "${ROOT_DIR}/scripts/lib/selection.sh"
 
+load_homebrew_environment() {
+    if [[ "${OS:-}" == "macos" ]]; then
+        if [[ -x /opt/homebrew/bin/brew ]]; then
+            eval "$(/opt/homebrew/bin/brew shellenv)"
+        elif [[ -x /usr/local/bin/brew ]]; then
+            eval "$(/usr/local/bin/brew shellenv)"
+        fi
+    fi
+}
+
 INTERACTIVE_MODE="auto"
 for arg in "$@"; do
     case "${arg}" in
@@ -66,7 +76,12 @@ log_info "Selected modules: ${selected_modules:-none}"
 
 while IFS= read -r module; do
     [[ -z "${module}" ]] && continue
+
     run_module "${module}"
+
+    if [[ "${OS}" == "macos" && "${module}" == "system_packages" ]]; then
+        load_homebrew_environment
+    fi
 done < "${selected_file}"
 
 log_success "Workstation Bootstrap ${VERSION} completed"

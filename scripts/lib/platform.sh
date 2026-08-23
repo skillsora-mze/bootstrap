@@ -52,7 +52,7 @@ validate_supported_platform() {
             local major
             major="$(detect_macos_major)"
             [[ "${major}" =~ ^[0-9]+$ ]] || { log_error "Unable to determine macOS version"; return 1; }
-            (( major >= 14 )) || { log_error "macOS 14 or newer is required for OrbStack"; return 1; }
+            (( major >= 14 )) || { log_error "macOS 14 or newer is required"; return 1; }
             ;;
         linux)
             local distro version

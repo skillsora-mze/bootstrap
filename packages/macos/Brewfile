@@ -17,6 +17,11 @@ brew "git"
 brew "git-lfs"
 brew "gh"
 
+# Containers
+brew "colima"
+brew "docker"
+brew "docker-compose"
+
 # Development languages / tools
 brew "python"
 brew "uv"
