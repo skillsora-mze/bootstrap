@@ -48,7 +48,7 @@ for id in fedora opensuse-tumbleweed; do
     printf 'ID=%s\n' "${id}" > "${fixture}"
     (
         # Invoked indirectly by validate_supported_platform.
-        # shellcheck disable=SC2329
+        # shellcheck disable=SC2329,SC2317
         command() {
             if [[ "$1" == -v && ( "$2" == dnf || "$2" == zypper ) ]]; then return 1; fi
             builtin command "$@"
