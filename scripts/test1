@@ -1,0 +1,13 @@
+cat /etc/os-release
+
+echo "=== SOURCES.LIST ==="
+cat /etc/apt/sources.list 2>/dev/null || true
+
+echo "=== SOURCES.LIST.D ==="
+ls -la /etc/apt/sources.list.d/
+
+echo "=== DEBIAN.SOURCES ==="
+cat /etc/apt/sources.list.d/debian.sources 2>/dev/null || true
+
+echo "=== APT UPDATE ==="
+sudo apt update
