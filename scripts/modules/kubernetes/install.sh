@@ -22,6 +22,39 @@ install_kubectl_debian() {
     rm -rf "${tmp_dir}"
 }
 
+install_kubectl_portable_linux() {
+    local tmp_dir checksum
+    tmp_dir="$(with_temp_dir)"
+    download_file "https://dl.k8s.io/release/v${KUBERNETES_PATCH#v}/bin/linux/${ARCH}/kubectl" "${tmp_dir}/kubectl"
+    download_file "https://dl.k8s.io/release/v${KUBERNETES_PATCH#v}/bin/linux/${ARCH}/kubectl.sha256" "${tmp_dir}/kubectl.sha256"
+    checksum="$(cat "${tmp_dir}/kubectl.sha256")"
+    [[ "${checksum}" =~ ^[0-9a-fA-F]{64}$ ]] || { log_error "Invalid kubectl checksum"; return 1; }
+    sha256_verify "${tmp_dir}/kubectl" "${checksum}"
+    sudo install -m 0755 "${tmp_dir}/kubectl" /usr/local/bin/kubectl
+    rm -rf "${tmp_dir}"
+}
+
+install_kubectx_portable_linux() {
+    local tmp_dir platform tool asset checksum
+    tmp_dir="$(with_temp_dir)"
+    case "${ARCH}" in
+        amd64) platform=x86_64 ;;
+        arm64) platform=arm64 ;;
+        *) return 1 ;;
+    esac
+    download_file "https://github.com/ahmetb/kubectx/releases/download/${KUBECTX_VERSION}/checksums.txt" "${tmp_dir}/checksums.txt"
+    for tool in kubectx kubens; do
+        asset="${tool}_${KUBECTX_VERSION}_linux_${platform}.tar.gz"
+        download_file "https://github.com/ahmetb/kubectx/releases/download/${KUBECTX_VERSION}/${asset}" "${tmp_dir}/${asset}"
+        checksum="$(awk -v asset="${asset}" '$2 == asset || $2 == "*" asset {print $1; exit}' "${tmp_dir}/checksums.txt")"
+        [[ "${checksum}" =~ ^[0-9a-fA-F]{64}$ ]] || { log_error "Missing checksum for ${asset}"; return 1; }
+        sha256_verify "${tmp_dir}/${asset}" "${checksum}"
+        tar -xzf "${tmp_dir}/${asset}" -C "${tmp_dir}" "${tool}"
+        sudo install -m 0755 "${tmp_dir}/${tool}" "/usr/local/bin/${tool}"
+    done
+    rm -rf "${tmp_dir}"
+}
+
 install_helm_linux() {
     local tmp_dir archive checksum_file platform checksum
     tmp_dir="$(with_temp_dir)"
@@ -108,11 +141,21 @@ case "${OS}" in
         configure_kubernetes_macos
         ;;
     linux)
-        command -v kubectl >/dev/null 2>&1 || install_kubectl_debian
+        if ! command -v kubectl >/dev/null 2>&1; then
+            case "$(detect_linux_family)" in
+                debian|ubuntu) install_kubectl_debian ;;
+                fedora|opensuse) install_kubectl_portable_linux ;;
+            esac
+        fi
         command -v helm >/dev/null 2>&1 || install_helm_linux
         command -v kind >/dev/null 2>&1 || install_kind_linux
         command -v k9s >/dev/null 2>&1 || install_k9s_linux
-        command -v kubectx >/dev/null 2>&1 || sudo DEBIAN_FRONTEND=noninteractive apt-get install -y kubectx
+        if ! command -v kubectx >/dev/null 2>&1; then
+            case "$(detect_linux_family)" in
+                debian|ubuntu) linux_install_packages kubectx ;;
+                fedora|opensuse) install_kubectx_portable_linux ;;
+            esac
+        fi
         ;;
 esac
 

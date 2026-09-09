@@ -5,6 +5,11 @@ log_info "Configuring Microsoft Azure tooling"
 
 install_azure_cli_debian() {
     sudo apt-get update
+    # Prefer the distribution build, including Debian 13's native package.
+    if apt-cache policy azure-cli | awk '/Candidate:/ { if ($2 != "(none)") found=1 } END { exit !found }'; then
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y azure-cli
+        return
+    fi
     sudo apt-get install -y ca-certificates curl gnupg lsb-release
     sudo install -m 0755 -d /etc/apt/keyrings
 
@@ -16,7 +21,7 @@ install_azure_cli_debian() {
     sudo install -m 0644 "${tmp_dir}/microsoft.gpg" /etc/apt/keyrings/microsoft.gpg
 
     local codename
-    codename="$(lsb_release -cs)"
+    codename="$(linux_repository_codename)"
     sudo tee /etc/apt/sources.list.d/azure-cli.sources >/dev/null <<EOF2
 Types: deb
 URIs: https://packages.microsoft.com/repos/azure-cli/
@@ -56,10 +61,37 @@ install_azd_debian() {
     rm -rf "${tmp_dir}"
 }
 
+install_azd_portable_linux() {
+    local tmp_dir asset expected
+    tmp_dir="$(with_temp_dir)"
+    asset="azd-linux-${ARCH}.tar.gz"
+    case "${ARCH}" in
+        amd64) expected="${AZD_TAR_SHA256_AMD64}" ;;
+        arm64) expected="${AZD_SHA256_ARM64}" ;;
+        *) return 1 ;;
+    esac
+    download_file "https://github.com/Azure/azure-dev/releases/download/azure-dev-cli_${AZD_VERSION}/${asset}" "${tmp_dir}/${asset}"
+    sha256_verify "${tmp_dir}/${asset}" "${expected}"
+    tar -xzf "${tmp_dir}/${asset}" -C "${tmp_dir}"
+    sudo install -m 0755 "${tmp_dir}/azd-linux-${ARCH}" /usr/local/bin/azd
+    rm -rf "${tmp_dir}"
+}
+
 case "${OS}" in
     linux)
-        command -v az >/dev/null 2>&1 || install_azure_cli_debian
-        command -v azd >/dev/null 2>&1 || install_azd_debian
+        case "$(detect_linux_family)" in
+            debian|ubuntu)
+                command -v az >/dev/null 2>&1 || install_azure_cli_debian
+                command -v azd >/dev/null 2>&1 || install_azd_debian
+                ;;
+            fedora|opensuse)
+                if ! command -v az >/dev/null 2>&1; then
+                    linux_refresh_packages
+                    linux_install_packages azure-cli
+                fi
+                command -v azd >/dev/null 2>&1 || install_azd_portable_linux
+                ;;
+        esac
         ;;
     macos)
         command -v brew >/dev/null 2>&1 || {

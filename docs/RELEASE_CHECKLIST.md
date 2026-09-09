@@ -16,10 +16,10 @@
 - [ ] OrbStack starts and Docker-compatible commands work.
 - [ ] Full selected toolchain verifies.
 
-## Debian 12
+## Linux
 
-- [ ] Debian 12 amd64 first-run/idempotence passes.
-- [ ] Debian 12 arm64 first-run/idempotence passes if released.
+- [ ] Debian 11, 12 and 13 amd64 first-run/idempotence passes.
+- [ ] Debian 11, 12 and 13 arm64 first-run/idempotence passes if released.
 - [ ] Docker Engine, Compose and Kubernetes client/local tooling verify.
 
 ## Windows x64 container profile
@@ -50,3 +50,23 @@
 - [x] AWS/Azure/HashiCorp tools verify when selected.
 - [x] kubectl/Helm/k9s/kubectx verify when selected.
 - [x] First run and second idempotence run both pass.
+
+- [ ] Ubuntu and Linux Mint first-run/idempotence passes.
+
+- [ ] Fedora: system packages, Kubernetes, Azure, HashiCorp and Docker first-run/idempotence.
+- [ ] openSUSE Leap and Tumbleweed: first-run/idempotence; verify Vagrant limitation on ARM64.
+
+### RPM support validation (2026-09-09)
+
+- [x] Bash tests, ShellCheck and whitespace checks pass locally.
+- [x] Fedora 44 ARM64 disposable container: system_packages, Kubernetes, Azure
+  and HashiCorp modules install and pass their CLI checks.
+- [x] openSUSE Tumbleweed ARM64 disposable container: system_packages,
+  Kubernetes and Azure modules install and pass their CLI checks.
+- [x] Fedora 44 and Tumbleweed ARM64: Docker/Compose packages install and a second
+  installer run succeeds. Service startup and daemon health were stubbed; no
+  Docker daemon was started inside these containers.
+- [x] Leap 15.6 ARM64: native package dependency resolution succeeds (dry run).
+- [ ] openSUSE x86_64 HashiCorp runtime: test host cannot execute x86_64 containers
+  (`exec format error`); the Vagrant RPM remains to be exercised on x86_64.
+- [ ] Full workstation installation with systemd and a running Docker daemon.

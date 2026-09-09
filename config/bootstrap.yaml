@@ -16,7 +16,7 @@ platform:
   macos:
     runtime: orbstack
   linux:
-    distribution: debian
+    distribution: auto
     runtime: docker-engine
   windows:
     minimum_build: 22631

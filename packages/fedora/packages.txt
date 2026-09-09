@@ -1,0 +1,38 @@
+# Base system tools
+
+curl
+wget
+git
+git-lfs
+gh
+jq
+unzip
+zip
+ca-certificates
+
+# Shell / terminal
+
+tmux
+htop
+tree
+fzf
+ripgrep
+fd-find
+
+# Development
+
+python3
+python3-pip
+golang
+
+# Security
+
+openssl
+gnupg2
+age
+
+# Archive and installer prerequisites
+file
+tar
+gzip
+xz
