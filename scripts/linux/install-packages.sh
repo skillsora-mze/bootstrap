@@ -104,13 +104,28 @@ install_starship_linux() {
 }
 
 DISTRO="$(detect_linux_distribution)"
-[[ "${DISTRO}" == "debian" ]] || { log_error "Unsupported Linux distribution: ${DISTRO}"; exit 1; }
+validate_supported_platform linux "${ARCH}"
 
-PACKAGE_FILE="${ROOT_DIR}/packages/debian/packages.txt"
+FAMILY="$(detect_linux_family)"
+[[ "${FAMILY}" != ubuntu ]] || FAMILY=debian
+PACKAGE_FILE="${ROOT_DIR}/packages/${FAMILY}/packages.txt"
 [[ -f "${PACKAGE_FILE}" ]] || { log_error "Package file not found: ${PACKAGE_FILE}"; exit 1; }
 
-log_section "Installing Debian system packages"
-sudo apt-get update
+log_section "Installing ${DISTRO} system packages"
+linux_refresh_packages
+
+# Debian 11 does not ship gh in its default repositories.
+if [[ "${FAMILY}" == debian ]] && ! apt-cache policy gh | awk '/Candidate:/ { if ($2 != "(none)") found=1 } END { exit !found }'; then
+    sudo apt-get install -y ca-certificates curl
+    key_dir="$(with_temp_dir)"
+    download_file "https://cli.github.com/packages/githubcli-archive-keyring.gpg" "${key_dir}/githubcli.gpg"
+    sudo install -d -m 0755 /etc/apt/keyrings
+    sudo install -m 0644 "${key_dir}/githubcli.gpg" /etc/apt/keyrings/githubcli.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli.gpg] https://cli.github.com/packages stable main" \
+        | sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null
+    rm -rf "${key_dir}"
+    sudo apt-get update
+fi
 
 packages=()
 while IFS= read -r package; do
@@ -119,7 +134,7 @@ while IFS= read -r package; do
 done < "${PACKAGE_FILE}"
 
 if ((${#packages[@]})); then
-    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "${packages[@]}"
+    linux_install_packages "${packages[@]}"
 fi
 
 if ! command -v uv >/dev/null 2>&1 || [[ "$(uv --version | awk '{print $2}')" != "${UV_VERSION#v}" ]]; then
@@ -153,4 +168,4 @@ command -v starship >/dev/null 2>&1 || { log_error "starship not found"; exit 1;
     exit 1
 }
 
-log_success "Debian system packages installation completed"
+log_success "${DISTRO} system packages installation completed"

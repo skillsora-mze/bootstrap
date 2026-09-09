@@ -14,7 +14,7 @@ Workstation Bootstrap prepares training workstations for cloud, Infrastructure a
 
 ### Debian
 
-- Debian 12
+- Debian 11, 12, 13+
 - amd64 or arm64
 - Docker Engine CE local container runtime
 
@@ -82,7 +82,7 @@ Windows:
 .\scripts\verify-workstation.ps1
 ```
 
-macOS / Debian:
+macOS / Linux:
 
 ```bash
 ./scripts/verify-workstation.sh
@@ -93,3 +93,34 @@ Verification is profile-aware: it does not report Docker or `kind` as missing on
 ## Idempotence
 
 A release/profile validation requires a successful first bootstrap, verification, then a successful second bootstrap and verification without duplicate profile content or unintended reinstall behavior.
+
+### Linux compatibility
+
+The bootstrap accepts Debian 11 and newer, Ubuntu, and derivatives declaring
+`ID_LIKE=debian` or `ID_LIKE=ubuntu` in `/etc/os-release`, plus Fedora
+and openSUSE Leap/Tumbleweed. Bash, sudo and the native package manager
+(APT, DNF or Zypper) are required; the containers module also requires systemd. Ubuntu repositories must
+include universe for the base package list. Arch, Alpine and immutable editions (Fedora Atomic/CoreOS, openSUSE MicroOS)
+are not supported.
+
+Docker uses the Debian or Ubuntu repository as appropriate. Ubuntu derivatives
+(such as Linux Mint) use `UBUNTU_CODENAME`. If a Debian derivative uses its own
+codename, supply the actual base release explicitly, for example:
+`LINUX_BASE_CODENAME=trixie ./bootstrap.sh` (only for a Debian 13 base).
+Never substitute an unrelated release. Future releases are not blocked by an
+upper version limit, but installation still depends on package and vendor
+repository availability. Tests cover release detection and package-manager routing. Full installation
+on every distribution and architecture has not been verified.
+
+On Fedora, Docker uses its official Fedora repository; on openSUSE it uses
+`docker` and `docker-compose` from the distribution. Azure CLI and Ansible use
+native packages. On both RPM families, kubectl, kubectx/kubens, Terraform,
+Packer and azd use upstream downloads with SHA-256 verification. Vagrant uses
+Fedora's package or the official HashiCorp RPM on openSUSE x86_64.
+**openSUSE ARM64:** the HashiCorp module requires an existing Vagrant installation;
+otherwise deselect that module (no official ARM64 Vagrant RPM is available).
+No conflicting container packages are removed automatically.
+
+Install Git before cloning on Fedora with `sudo dnf install -y git`, or on
+openSUSE with `sudo zypper --non-interactive install git`. Then run
+`./bootstrap.sh` as on Debian.

@@ -7,7 +7,9 @@ Reproducible workstation bootstrap for cloud, DevOps and Kubernetes training lab
 | Platform | Architecture | Local containers |
 |---|---|---|
 | macOS 14+ | arm64 | OrbStack |
-| Debian 12 | amd64 / arm64 | Docker Engine CE |
+| Debian 11, 12, 13+ / Ubuntu | amd64 / arm64 | Docker Engine CE |
+| Fedora | amd64 / arm64 | Docker Engine CE |
+| openSUSE Leap / Tumbleweed | amd64 / arm64 (Vagrant limitation below) | Distribution Docker |
 | Windows 11 23H2+ | x64 | Docker Desktop + WSL2 |
 | Windows 11 23H2+ | arm64 | Docker Desktop + WSL2 when hardware virtualization is exposed |
 | Windows 11 ARM64 on VMware Fusion / Apple Silicon | arm64 | Not available; client-tools-only profile |
@@ -60,7 +62,7 @@ cd bootstrap
 
 ### 3. Run the bootstrap
 
-macOS / Debian:
+macOS / Linux:
 
 ```bash
 ./bootstrap.sh
@@ -74,7 +76,7 @@ Windows:
 
 ### 4. Verify the workstation
 
-macOS / Debian:
+macOS / Linux:
 
 ```bash
 ./scripts/verify-workstation.sh
@@ -98,3 +100,38 @@ For idempotence testing, run the bootstrap a second time and repeat the workstat
 - real runtime smoke tests for local container profiles
 
 See `USERGUIDE.md`, `PROJECT_OVERVIEW.md`, `CURRENT_STATE.md`, and `PROJECT_DECISIONS.md` for the operational contract.
+
+### Linux compatibility
+
+The bootstrap accepts Debian 11 and newer, Ubuntu, and derivatives declaring
+`ID_LIKE=debian` or `ID_LIKE=ubuntu` in `/etc/os-release`, plus Fedora
+and openSUSE Leap/Tumbleweed. Bash, sudo and the native package manager
+(APT, DNF or Zypper) are required; the containers module also requires systemd. Ubuntu repositories must
+include universe for the base package list. Arch, Alpine and immutable editions (Fedora Atomic/CoreOS, openSUSE MicroOS)
+are not supported.
+
+Docker uses the Debian or Ubuntu repository as appropriate. Ubuntu derivatives
+(such as Linux Mint) use `UBUNTU_CODENAME`. If a Debian derivative uses its own
+codename, supply the actual base release explicitly, for example:
+`LINUX_BASE_CODENAME=trixie ./bootstrap.sh` (only for a Debian 13 base).
+Never substitute an unrelated release. Future releases are not blocked by an
+upper version limit, but installation still depends on package and vendor
+repository availability. Tests cover release detection and package-manager routing. Full installation
+on every distribution and architecture has not been verified.
+
+On Fedora, Docker uses its official Fedora repository; on openSUSE it uses
+`docker` and `docker-compose` from the distribution. Azure CLI and Ansible use
+native packages. On both RPM families, kubectl, kubectx/kubens, Terraform,
+Packer and azd use upstream downloads with SHA-256 verification. Vagrant uses
+Fedora's package or the official HashiCorp RPM on openSUSE x86_64.
+**openSUSE ARM64:** the HashiCorp module requires an existing Vagrant installation;
+otherwise deselect that module (no official ARM64 Vagrant RPM is available).
+No conflicting container packages are removed automatically.
+
+Install Git before cloning on Fedora with `sudo dnf install -y git`, or on
+openSUSE with `sudo zypper --non-interactive install git`. Then run
+`./bootstrap.sh` as on Debian.
+
+RPM installation references: [Docker Fedora](https://docs.docker.com/engine/install/fedora/),
+[HashiCorp downloads](https://developer.hashicorp.com/terraform/install),
+[Azure Developer CLI releases](https://github.com/Azure/azure-dev/releases/tag/azure-dev-cli_1.31.1).
