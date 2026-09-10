@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+source "${ROOT_DIR}/scripts/lib/version.sh"
+
 log_info "Configuring Microsoft Azure tooling"
 
 install_azure_cli_debian() {
@@ -110,6 +112,14 @@ az version | head -n 8
 azd_output="$(azd version)"
 printf '%s\n' "${azd_output}"
 if [[ "${OS}" == "linux" ]]; then
-    printf '%s\n' "${azd_output}" | grep -Fq "${AZD_VERSION}" || { log_error "azd version mismatch: expected ${AZD_VERSION}; automatic downgrade is not performed"; exit 1; }
+    azd_installed_version="$(printf '%s\n' "${azd_output}" | awk '$1 == "azd" && $2 == "version" {print $3; exit}')"
+    stable_version_core "${azd_installed_version}" >/dev/null || {
+        log_error "Cannot validate stable azd version: ${azd_output}"
+        exit 1
+    }
+    stable_version_at_least "${azd_installed_version}" "${AZD_VERSION}" || {
+        log_error "azd ${azd_installed_version} is too old; version ${AZD_VERSION} or newer is required. Update the azd executable shown by: command -v azd"
+        exit 1
+    }
 fi
 log_success "Azure tooling validated"
