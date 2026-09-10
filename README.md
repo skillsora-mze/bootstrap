@@ -135,3 +135,8 @@ openSUSE with `sudo zypper --non-interactive install git`. Then run
 RPM installation references: [Docker Fedora](https://docs.docker.com/engine/install/fedora/),
 [HashiCorp downloads](https://developer.hashicorp.com/terraform/install),
 [Azure Developer CLI releases](https://github.com/Azure/azure-dev/releases/tag/azure-dev-cli_1.31.1).
+
+On Linux, an existing stable Azure Developer CLI (`azd`) at version 1.31.1
+or newer is accepted and preserved. Clean installations still use the pinned,
+SHA-256-verified release. Older versions report the detected version and require
+an update; preview or unrecognized version output is rejected.
