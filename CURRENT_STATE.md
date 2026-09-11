@@ -2,12 +2,12 @@
 
 ## Version
 
-`v1.5.0` is released. `main` contains additional validated Debian ARM64 fixes pending the next patch release.
+`v1.5.1` includes the Debian ARM64 fixes, expanded Linux distribution support and azd version validation correction.
 
 ## Implemented
 
-- macOS Apple Silicon with OrbStack.
-- Debian 12 amd64/arm64 with Docker Engine CE.
+- macOS Apple Silicon with Colima.
+- Debian 11+ and Ubuntu/APT derivatives, plus Fedora and openSUSE Leap/Tumbleweed, on amd64/arm64 (openSUSE ARM64 Vagrant limitation below).
 - Windows 11 23H2+ x64 with Docker Desktop/WSL2 and Linux containers.
 - Windows 11 ARM64 native CLI support with architecture-aware packages and Helm artifacts.
 - Windows ARM64 VMware Fusion guests are detected as client-tools-only: local Docker Desktop startup and local `kind` are skipped rather than allowed to fail.
@@ -39,7 +39,9 @@ Docker Desktop remains the Windows local-container baseline only on Windows syst
 
 Debian 12 ARM64 validation after `v1.5.0` confirmed a successful full bootstrap, complete workstation verification, and successful second-run idempotence. The second run did not re-download or reinstall the pinned `uv`, `yq`, or Starship artifacts.
 
-The post-`v1.5.0` Debian fixes on `main` are pending the next patch release.
+The user reported a successful Debian 13 bootstrap and, on 2026-09-10, successful workstation verification on a Dell PC running Ubuntu 26 after addressing an older azd installation. This is user-reported validation; the Dell was not accessed by the agent.
+
+Fedora 44 ARM64 container checks cover system packages, Kubernetes, Azure and HashiCorp. Tumbleweed ARM64 checks cover system packages, Kubernetes and Azure. Docker/Compose package installation and repeat runs pass on both with daemon startup stubbed. Leap 15.6 package resolution passes.
 
 ## Residual risks
 
@@ -47,5 +49,8 @@ The post-`v1.5.0` Debian fixes on `main` are pending the next patch release.
 - Package-manager tools without explicit version pins follow their vendor/package-manager stable channels.
 - AWS CLI v2 Linux uses AWS's current official installer endpoint; its archive is not repository-pinned by SHA-256.
 - Homebrew bootstrap uses Homebrew's official current installer rather than a repository-pinned installer revision.
-- GUI/runtime behavior such as OrbStack and Docker Desktop startup cannot be fully proven by static CI.
+- GUI/runtime behavior such as Colima and Docker Desktop startup cannot be fully proven by static CI.
 - Existing macOS Homebrew installations of `aws-sam-cli` are accepted with a warning; clean installs use AWS's first-party package.
+
+- Full Fedora/openSUSE systemd and Docker daemon validation remains outstanding.
+- openSUSE x86_64 Vagrant execution is unverified; openSUSE ARM64 requires a preinstalled Vagrant or deselection of HashiCorp.

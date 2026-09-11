@@ -13,7 +13,7 @@
 ## macOS Apple Silicon
 
 - [ ] macOS 14+ arm64 host.
-- [ ] OrbStack starts and Docker-compatible commands work.
+- [ ] Colima starts and Docker-compatible commands work.
 - [ ] Full selected toolchain verifies.
 
 ## Linux
@@ -70,3 +70,9 @@
 - [ ] openSUSE x86_64 HashiCorp runtime: test host cannot execute x86_64 containers
   (`exec format error`); the Vagrant RPM remains to be exercised on x86_64.
 - [ ] Full workstation installation with systemd and a running Docker daemon.
+
+### User-reported host validation (2026-09-10)
+
+- [x] Debian 13: user confirmed bootstrap succeeds after the platform correction.
+- [x] Dell PC, Ubuntu 26: user confirmed workstation validation succeeds after addressing azd 1.28.1. Exact resulting azd version was not provided.
+- [ ] Second bootstrap and verification on that Dell host.

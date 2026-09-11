@@ -10,7 +10,7 @@ foreach ($module in $modules) {
 }
 
 $config = Join-Path $RootDir 'config/bootstrap.yaml'
-if ((Get-BootstrapVersion -ConfigPath $config) -ne '1.5.0') { throw 'Unexpected bootstrap version' }
+if ((Get-BootstrapVersion -ConfigPath $config) -ne '1.5.1') { throw 'Unexpected bootstrap version' }
 $enabled = @(Get-EnabledModules -ConfigPath $config)
 if (($enabled -join ',') -ne ($modules -join ',')) { throw "Unexpected module order: $($enabled -join ',')" }
 
